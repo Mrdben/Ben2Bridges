@@ -1,4 +1,3 @@
 # Workspace
 
-这个文件夹用于存放以后编写的代码、文档和其他工作文件。
-
+This folder is for code, documentation, and other work files created in the future.
