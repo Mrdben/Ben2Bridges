@@ -11,6 +11,7 @@ from pathlib import Path
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 INPUT_PATH = WEBSITE_DIR / "Data" / "PA 2025.csv"
 OUTPUT_PATH = WEBSITE_DIR / "Data" / "pa_bridges_2025.geojson"
+MAP_OUTPUT_PATH = WEBSITE_DIR / "Data" / "pa_bridges_2025_map.geojson"
 
 REQUIRED_COLUMNS = {
     "STRUCTURE_NUMBER_008",
@@ -25,6 +26,9 @@ REQUIRED_COLUMNS = {
     "ADT_029",
     "YEAR_ADT_030",
     "STRUCTURE_LEN_MT_049",
+    "STRUCTURE_KIND_043A",
+    "STRUCTURE_TYPE_043B",
+    "DECK_AREA",
     "DECK_COND_058",
     "SUPERSTRUCTURE_COND_059",
     "SUBSTRUCTURE_COND_060",
@@ -145,6 +149,9 @@ def convert() -> dict[str, object]:
                 "adtYear": parse_number(row["YEAR_ADT_030"], integer=True),
                 "detourKm": parse_number(row["DETOUR_KILOS_019"]),
                 "lengthM": parse_number(row["STRUCTURE_LEN_MT_049"]),
+                "materialKind": parse_number(row["STRUCTURE_KIND_043A"], integer=True),
+                "structureType": parse_number(row["STRUCTURE_TYPE_043B"], integer=True),
+                "deckArea": parse_number(row["DECK_AREA"]),
                 "inspectionDate": inspection_date_code(row["DATE_OF_INSPECT_090"]),
             }
 
@@ -188,10 +195,48 @@ def convert() -> dict[str, object]:
         )
         destination.write("\n")
 
+    map_collection = {
+        "type": "FeatureCollection",
+        "name": "Pennsylvania Bridge Map Points 2025",
+        "bbox": collection["bbox"],
+        "features": [
+            {
+                "type": "Feature",
+                "id": feature["id"],
+                "geometry": feature["geometry"],
+                "properties": {
+                    key: feature["properties"][key]
+                    for key in (
+                        "facility",
+                        "featureCrossed",
+                        "location",
+                        "condition",
+                        "yearBuilt",
+                        "materialKind",
+                        "structureType",
+                        "deckArea",
+                    )
+                },
+            }
+            for feature in features
+        ],
+    }
+
+    with MAP_OUTPUT_PATH.open("w", encoding="utf-8", newline="\n") as destination:
+        json.dump(
+            map_collection,
+            destination,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        destination.write("\n")
+
     return collection
 
 
 if __name__ == "__main__":
     result = convert()
     print(f"Wrote {len(result['features']):,} bridges to {OUTPUT_PATH}")
+    print(f"Wrote lightweight map data to {MAP_OUTPUT_PATH}")
     print(f"Bounds: {result['bbox']}")

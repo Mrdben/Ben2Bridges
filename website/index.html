@@ -9,40 +9,205 @@
       :root {
         color-scheme: light;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #172033;
+        background: #edf2f6;
       }
 
       * { box-sizing: border-box; }
 
       html, body {
-        height: 100%;
+        min-height: 100%;
         margin: 0;
       }
 
       body {
-        display: grid;
-        grid-template-rows: 64px minmax(0, 1fr);
-        overflow: hidden;
-        background: #e8eef3;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top right, rgb(191 219 254 / 32%), transparent 34rem),
+          #edf2f6;
       }
 
       header {
-        z-index: 2;
         display: flex;
         align-items: center;
-        padding: 0 24px;
+        min-height: 64px;
+        padding: 0 28px;
         color: #f8fafc;
         background: #12202e;
-        box-shadow: 0 3px 14px rgb(15 23 42 / 20%);
+        box-shadow: 0 3px 14px rgb(15 23 42 / 18%);
       }
 
       h1 {
         margin: 0;
         font-size: 1.35rem;
-        font-weight: 650;
+        font-weight: 680;
         letter-spacing: -0.02em;
       }
 
-      #map { min-height: 0; }
+      .app-shell {
+        display: grid;
+        grid-template-columns: 292px minmax(0, 1fr);
+        gap: 18px;
+        width: min(1480px, 100%);
+        height: calc(100vh - 64px);
+        min-height: 600px;
+        margin: 0 auto;
+        padding: 18px;
+      }
+
+      .filters-panel,
+      .map-card {
+        border: 1px solid rgb(148 163 184 / 24%);
+        border-radius: 14px;
+        background: #ffffff;
+        box-shadow: 0 12px 34px rgb(15 23 42 / 10%);
+      }
+
+      .filters-panel {
+        overflow-y: auto;
+        padding: 22px;
+      }
+
+      .eyebrow {
+        margin: 0 0 5px;
+        color: #2563eb;
+        font-size: 0.72rem;
+        font-weight: 750;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin: 0 0 6px;
+        color: #172033;
+        font-size: 1.25rem;
+        letter-spacing: -0.02em;
+      }
+
+      .panel-intro {
+        margin: 0 0 20px;
+        color: #64748b;
+        font-size: 0.83rem;
+        line-height: 1.45;
+      }
+
+      .field {
+        display: grid;
+        gap: 7px;
+        margin-bottom: 15px;
+      }
+
+      label {
+        color: #334155;
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      input,
+      select,
+      button {
+        width: 100%;
+        min-height: 40px;
+        border-radius: 8px;
+        font: inherit;
+      }
+
+      input,
+      select {
+        border: 1px solid #cbd5e1;
+        padding: 0 11px;
+        color: #172033;
+        background: #ffffff;
+        outline: none;
+      }
+
+      input:focus,
+      select:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgb(59 130 246 / 14%);
+      }
+
+      .field-hint {
+        margin: -2px 0 0;
+        color: #94a3b8;
+        font-size: 0.7rem;
+      }
+
+      button {
+        margin-top: 2px;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        background: #f8fafc;
+        cursor: pointer;
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      button:hover { background: #eef2f7; }
+
+      .results {
+        margin: 17px 0;
+        padding: 12px;
+        border-radius: 9px;
+        color: #1e3a8a;
+        background: #eff6ff;
+        font-size: 0.78rem;
+        line-height: 1.4;
+      }
+
+      .legend {
+        padding-top: 17px;
+        border-top: 1px solid #e2e8f0;
+      }
+
+      .legend-title {
+        margin: 0 0 10px;
+        color: #334155;
+        font-size: 0.75rem;
+        font-weight: 750;
+        text-transform: uppercase;
+      }
+
+      .legend-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 8px 0;
+        color: #475569;
+        font-size: 0.77rem;
+      }
+
+      .legend-dot {
+        width: 10px;
+        height: 10px;
+        border: 1px solid #ffffff;
+        border-radius: 50%;
+        box-shadow: 0 0 0 1px rgb(15 23 42 / 12%);
+      }
+
+      .good { background: #16a34a; }
+      .fair { background: #f59e0b; }
+      .poor { background: #dc2626; }
+
+      .size-note {
+        margin: 12px 0 0;
+        color: #64748b;
+        font-size: 0.72rem;
+        line-height: 1.4;
+      }
+
+      .map-card {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      #map {
+        width: 100%;
+        height: 100%;
+        min-height: 540px;
+      }
 
       #loading {
         position: absolute;
@@ -55,7 +220,7 @@
         color: #334155;
         background: rgb(255 255 255 / 92%);
         box-shadow: 0 4px 16px rgb(15 23 42 / 14%);
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         backdrop-filter: blur(6px);
       }
 
@@ -65,20 +230,130 @@
         box-shadow: 0 2px 10px rgb(15 23 42 / 18%);
       }
 
-      @media (max-width: 600px) {
-        body { grid-template-rows: 56px minmax(0, 1fr); }
-        header { padding: 0 16px; }
+      .bridge-hover-popup .maplibregl-popup-content {
+        max-width: 270px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgb(15 23 42 / 18%);
+      }
+
+      .hover-name {
+        color: #172033;
+        font-size: 0.82rem;
+        font-weight: 750;
+        line-height: 1.3;
+      }
+
+      .hover-detail {
+        margin-top: 3px;
+        color: #64748b;
+        font-size: 0.7rem;
+        line-height: 1.35;
+      }
+
+      @media (max-width: 820px) {
+        header { min-height: 56px; padding: 0 16px; }
         h1 { font-size: 1.15rem; }
+
+        .app-shell {
+          grid-template-columns: 1fr;
+          height: auto;
+          min-height: 0;
+          padding: 12px;
+        }
+
+        .filters-panel { overflow: visible; }
+        .map-card { height: 68vh; min-height: 500px; }
       }
     </style>
   </head>
   <body>
     <header><h1>Ben&sup2; Bridges</h1></header>
-    <main id="map" aria-label="Map of Pennsylvania bridges"></main>
-    <div id="loading" role="status">Loading bridge locations&hellip;</div>
+
+    <main class="app-shell">
+      <aside class="filters-panel" aria-label="Bridge search and filters">
+        <p class="eyebrow">Pennsylvania NBI 2025</p>
+        <h2>Explore bridges</h2>
+        <p class="panel-intro">Search by road, crossed feature, location, or bridge ID, then narrow the statewide dataset.</p>
+
+        <div class="field">
+          <label for="bridge-search">Search</label>
+          <input id="bridge-search" type="search" placeholder="Road, creek, location, or ID" autocomplete="off">
+          <p class="field-hint">Press Enter to frame matching bridges.</p>
+        </div>
+
+        <div class="field">
+          <label for="condition-filter">Condition</label>
+          <select id="condition-filter">
+            <option value="all">All conditions</option>
+            <option value="G">Good</option>
+            <option value="F">Fair</option>
+            <option value="P">Poor</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="age-filter">Bridge age</label>
+          <select id="age-filter">
+            <option value="all">All ages</option>
+            <option value="0-25">0–25 years</option>
+            <option value="26-50">26–50 years</option>
+            <option value="51-75">51–75 years</option>
+            <option value="76+">76+ years</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="material-filter">Material / design</label>
+          <select id="material-filter">
+            <option value="all">All materials</option>
+            <option value="1">Concrete</option>
+            <option value="2">Concrete, continuous</option>
+            <option value="3">Steel</option>
+            <option value="4">Steel, continuous</option>
+            <option value="5">Prestressed concrete</option>
+            <option value="6">Prestressed concrete, continuous</option>
+            <option value="7">Wood or timber</option>
+            <option value="8">Masonry</option>
+            <option value="9">Aluminum or iron</option>
+            <option value="0">Other</option>
+          </select>
+        </div>
+
+        <button id="reset-filters" type="button">Reset filters</button>
+        <div id="result-count" class="results" role="status">Loading bridge records…</div>
+
+        <section class="legend" aria-label="Bridge condition legend">
+          <p class="legend-title">Bridge condition</p>
+          <div class="legend-row"><span class="legend-dot good"></span><span>Good</span></div>
+          <div class="legend-row"><span class="legend-dot fair"></span><span>Fair</span></div>
+          <div class="legend-row"><span class="legend-dot poor"></span><span>Poor</span></div>
+          <p class="size-note">Individual dot size is scaled by bridge deck area. Blue circles group nearby bridges at broader zoom levels.</p>
+        </section>
+      </aside>
+
+      <section class="map-card" aria-label="Bridge map window">
+        <div id="map" aria-label="Map of Pennsylvania bridges"></div>
+        <div id="loading" role="status">Loading bridge locations&hellip;</div>
+      </section>
+    </main>
 
     <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
     <script>
+      const DATASET_YEAR = 2025;
+      const numberFormatter = new Intl.NumberFormat("en-US");
+      const searchInput = document.getElementById("bridge-search");
+      const conditionFilter = document.getElementById("condition-filter");
+      const ageFilter = document.getElementById("age-filter");
+      const materialFilter = document.getElementById("material-filter");
+      const resetButton = document.getElementById("reset-filters");
+      const resultCount = document.getElementById("result-count");
+      const loadingIndicator = document.getElementById("loading");
+
+      let allBridgeData = null;
+      let bridgeDataSet = false;
+      let searchTimer = null;
+
       const map = new maplibregl.Map({
         container: "map",
         style: "https://tiles.openfreemap.org/styles/liberty",
@@ -98,7 +373,100 @@
 
       map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 
+      function matchesAge(yearBuilt, selection) {
+        if (selection === "all") return true;
+        const year = Number(yearBuilt);
+        if (!Number.isFinite(year) || year <= 0) return false;
+        const age = DATASET_YEAR - year;
+        if (selection === "0-25") return age >= 0 && age <= 25;
+        if (selection === "26-50") return age >= 26 && age <= 50;
+        if (selection === "51-75") return age >= 51 && age <= 75;
+        return age >= 76;
+      }
+
+      function fitFeatures(features) {
+        if (!features.length) return;
+        const bounds = new maplibregl.LngLatBounds();
+        features.forEach((feature) => bounds.extend(feature.geometry.coordinates));
+        map.fitBounds(bounds, {
+          padding: 70,
+          maxZoom: 12,
+          duration: 700
+        });
+      }
+
+      function applyFilters(frameMatches = false) {
+        if (!allBridgeData || !map.getSource("bridges")) return;
+
+        const query = searchInput.value.trim().toLowerCase();
+        const condition = conditionFilter.value;
+        const age = ageFilter.value;
+        const material = materialFilter.value;
+
+        const filtered = allBridgeData.features.filter((feature) => {
+          const properties = feature.properties || {};
+          const searchable = [
+            feature.id,
+            properties.facility,
+            properties.featureCrossed,
+            properties.location
+          ].filter(Boolean).join(" ").toLowerCase();
+
+          return (!query || searchable.includes(query)) &&
+            (condition === "all" || properties.condition === condition) &&
+            matchesAge(properties.yearBuilt, age) &&
+            (material === "all" || String(properties.materialKind) === material);
+        });
+
+        bridgeDataSet = true;
+        map.getSource("bridges").setData({
+          type: "FeatureCollection",
+          features: filtered
+        });
+
+        resultCount.textContent = "Showing " + numberFormatter.format(filtered.length) +
+          " of " + numberFormatter.format(allBridgeData.features.length) + " bridges";
+
+        if (frameMatches && query && filtered.length) fitFeatures(filtered);
+      }
+
+      function scheduleSearch() {
+        window.clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(() => applyFilters(false), 160);
+      }
+
+      function resetFilters() {
+        searchInput.value = "";
+        conditionFilter.value = "all";
+        ageFilter.value = "all";
+        materialFilter.value = "all";
+        applyFilters(false);
+        map.fitBounds([[-80.519428, 39.720794], [-74.693478, 42.260536]], {
+          padding: 35,
+          duration: 650
+        });
+      }
+
+      searchInput.addEventListener("input", scheduleSearch);
+      searchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          window.clearTimeout(searchTimer);
+          applyFilters(true);
+        }
+      });
+      conditionFilter.addEventListener("change", () => applyFilters(false));
+      ageFilter.addEventListener("change", () => applyFilters(false));
+      materialFilter.addEventListener("change", () => applyFilters(false));
+      resetButton.addEventListener("click", resetFilters);
+
       const addBridgeLayers = () => {
+        if (window.location.protocol === "file:") {
+          loadingIndicator.textContent = "Open start-map.bat to load bridge data.";
+          resultCount.textContent = "Start the local server to search bridge records.";
+          return;
+        }
+
         map.addSource("bridges", {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
@@ -108,6 +476,10 @@
           maxzoom: 12
         });
 
+        const firstLabelLayerId = map
+          .getStyle()
+          .layers.find((layer) => layer.type === "symbol")?.id;
+
         map.addLayer({
           id: "bridge-clusters",
           type: "circle",
@@ -116,12 +488,12 @@
           filter: ["has", "point_count"],
           paint: {
             "circle-color": ["step", ["get", "point_count"], "#2563eb", 100, "#1d4ed8", 500, "#1e3a8a"],
-            "circle-radius": ["step", ["get", "point_count"], 14, 100, 18, 500, 23],
-            "circle-stroke-width": 2,
+            "circle-radius": ["step", ["get", "point_count"], 10, 100, 13, 500, 17],
+            "circle-stroke-width": 1.5,
             "circle-stroke-color": "rgba(255, 255, 255, 0.92)",
-            "circle-opacity": 0.9
+            "circle-opacity": 0.68
           }
-        });
+        }, firstLabelLayerId);
 
         map.addLayer({
           id: "bridge-cluster-counts",
@@ -131,11 +503,11 @@
           filter: ["has", "point_count"],
           layout: {
             "text-field": ["get", "point_count_abbreviated"],
-            "text-size": 11,
+            "text-size": 10,
             "text-font": ["Noto Sans Regular"]
           },
           paint: { "text-color": "#ffffff" }
-        });
+        }, firstLabelLayerId);
 
         map.addLayer({
           id: "bridge-points",
@@ -145,44 +517,91 @@
           filter: ["!", ["has", "point_count"]],
           paint: {
             "circle-color": ["match", ["get", "condition"], "G", "#16a34a", "F", "#f59e0b", "P", "#dc2626", "#64748b"],
-            "circle-radius": ["interpolate", ["linear"], ["zoom"], 8.5, 3, 13, 5.5, 18, 8],
-            "circle-stroke-width": 1.5,
+            "circle-radius": [
+              "interpolate", ["linear"], ["coalesce", ["get", "deckArea"], 0],
+              0, 2.2,
+              60, 2.7,
+              185, 3.5,
+              500, 4.6,
+              1150, 6,
+              6150, 8.5,
+              25000, 11
+            ],
+            "circle-stroke-width": 1.2,
             "circle-stroke-color": "#ffffff",
             "circle-opacity": 0.92
           }
+        }, firstLabelLayerId);
+
+        const hoverPopup = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          offset: 10,
+          className: "bridge-hover-popup"
         });
 
-        let bridgeDataSet = false;
+        map.on("mousemove", "bridge-points", (event) => {
+          const feature = event.features && event.features[0];
+          if (!feature) return;
+
+          map.getCanvas().style.cursor = "pointer";
+          const properties = feature.properties || {};
+          const title = properties.facility && properties.featureCrossed
+            ? properties.facility + " over " + properties.featureCrossed
+            : properties.facility || properties.featureCrossed || "Bridge " + feature.id;
+
+          const detailParts = [];
+          if (properties.location) detailParts.push(properties.location);
+          if (properties.yearBuilt) detailParts.push("Built " + properties.yearBuilt);
+
+          const content = document.createElement("div");
+          const name = document.createElement("div");
+          name.className = "hover-name";
+          name.textContent = title;
+          content.appendChild(name);
+
+          if (detailParts.length) {
+            const detail = document.createElement("div");
+            detail.className = "hover-detail";
+            detail.textContent = detailParts.join(" · ");
+            content.appendChild(detail);
+          }
+
+          hoverPopup
+            .setLngLat(feature.geometry.coordinates)
+            .setDOMContent(content)
+            .addTo(map);
+        });
+
+        map.on("mouseleave", "bridge-points", () => {
+          map.getCanvas().style.cursor = "";
+          hoverPopup.remove();
+        });
 
         fetch("./Data/pa_bridges_2025_map.geojson")
           .then((response) => {
-            if (!response.ok) {
-              throw new Error(`Bridge data request failed: ${response.status}`);
-            }
+            if (!response.ok) throw new Error("Bridge data request failed: " + response.status);
             return response.json();
           })
           .then((data) => {
-            bridgeDataSet = true;
-            map.getSource("bridges").setData(data);
+            allBridgeData = data;
+            applyFilters(false);
           })
           .catch((error) => {
-            const loading = document.getElementById("loading");
-            loading.textContent = "Bridge data could not be loaded.";
+            loadingIndicator.textContent = "Bridge data could not be loaded.";
+            resultCount.textContent = "Bridge records are unavailable.";
             console.error(error);
           });
 
         map.on("sourcedata", (event) => {
           if (bridgeDataSet && event.sourceId === "bridges" && event.isSourceLoaded) {
-            document.getElementById("loading").hidden = true;
+            loadingIndicator.hidden = true;
           }
         });
       };
 
-      if (map.isStyleLoaded()) {
-        addBridgeLayers();
-      } else {
-        map.once("style.load", addBridgeLayers);
-      }
+      if (map.isStyleLoaded()) addBridgeLayers();
+      else map.once("style.load", addBridgeLayers);
     </script>
   </body>
 </html>
