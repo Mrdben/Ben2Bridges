@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ben&sup2; Bridges</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        display: grid;
+        grid-template-rows: 64px minmax(0, 1fr);
+        overflow: hidden;
+        background: #e8eef3;
+      }
+
+      header {
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        padding: 0 24px;
+        color: #f8fafc;
+        background: #12202e;
+        box-shadow: 0 3px 14px rgb(15 23 42 / 20%);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+
+      #map { min-height: 0; }
+
+      #loading {
+        position: absolute;
+        z-index: 3;
+        right: 16px;
+        bottom: 34px;
+        padding: 9px 12px;
+        border: 1px solid rgb(148 163 184 / 35%);
+        border-radius: 8px;
+        color: #334155;
+        background: rgb(255 255 255 / 92%);
+        box-shadow: 0 4px 16px rgb(15 23 42 / 14%);
+        font-size: 0.8rem;
+        backdrop-filter: blur(6px);
+      }
+
+      .maplibregl-ctrl-group {
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgb(15 23 42 / 18%);
+      }
+
+      @media (max-width: 600px) {
+        body { grid-template-rows: 56px minmax(0, 1fr); }
+        header { padding: 0 16px; }
+        h1 { font-size: 1.15rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <header><h1>Ben&sup2; Bridges</h1></header>
+    <main id="map" aria-label="Map of Pennsylvania bridges"></main>
+    <div id="loading" role="status">Loading bridge locations&hellip;</div>
+
+    <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+    <script>
+      const map = new maplibregl.Map({
+        container: "map",
+        style: "https://tiles.openfreemap.org/styles/liberty",
+        center: [-77.7, 40.9],
+        zoom: 6.6,
+        minZoom: 4.5,
+        maxZoom: 18,
+        pitchWithRotate: false,
+        dragRotate: false,
+        attributionControl: false
+      });
+
+      map.addControl(new maplibregl.NavigationControl({
+        showCompass: false,
+        visualizePitch: false
+      }), "top-right");
+
+      map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+
+      const addBridgeLayers = () => {
+        map.addSource("bridges", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+          cluster: true,
+          clusterMaxZoom: 10,
+          clusterRadius: 48,
+          maxzoom: 12
+        });
+
+        map.addLayer({
+          id: "bridge-clusters",
+          type: "circle",
+          source: "bridges",
+          minzoom: 6,
+          filter: ["has", "point_count"],
+          paint: {
+            "circle-color": ["step", ["get", "point_count"], "#2563eb", 100, "#1d4ed8", 500, "#1e3a8a"],
+            "circle-radius": ["step", ["get", "point_count"], 14, 100, 18, 500, 23],
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "rgba(255, 255, 255, 0.92)",
+            "circle-opacity": 0.9
+          }
+        });
+
+        map.addLayer({
+          id: "bridge-cluster-counts",
+          type: "symbol",
+          source: "bridges",
+          minzoom: 6,
+          filter: ["has", "point_count"],
+          layout: {
+            "text-field": ["get", "point_count_abbreviated"],
+            "text-size": 11,
+            "text-font": ["Noto Sans Regular"]
+          },
+          paint: { "text-color": "#ffffff" }
+        });
+
+        map.addLayer({
+          id: "bridge-points",
+          type: "circle",
+          source: "bridges",
+          minzoom: 8.5,
+          filter: ["!", ["has", "point_count"]],
+          paint: {
+            "circle-color": ["match", ["get", "condition"], "G", "#16a34a", "F", "#f59e0b", "P", "#dc2626", "#64748b"],
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 8.5, 3, 13, 5.5, 18, 8],
+            "circle-stroke-width": 1.5,
+            "circle-stroke-color": "#ffffff",
+            "circle-opacity": 0.92
+          }
+        });
+
+        let bridgeDataSet = false;
+
+        fetch("./Data/pa_bridges_2025_map.geojson")
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`Bridge data request failed: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then((data) => {
+            bridgeDataSet = true;
+            map.getSource("bridges").setData(data);
+          })
+          .catch((error) => {
+            const loading = document.getElementById("loading");
+            loading.textContent = "Bridge data could not be loaded.";
+            console.error(error);
+          });
+
+        map.on("sourcedata", (event) => {
+          if (bridgeDataSet && event.sourceId === "bridges" && event.isSourceLoaded) {
+            document.getElementById("loading").hidden = true;
+          }
+        });
+      };
+
+      if (map.isStyleLoaded()) {
+        addBridgeLayers();
+      } else {
+        map.once("style.load", addBridgeLayers);
+      }
+    </script>
+  </body>
+</html>
