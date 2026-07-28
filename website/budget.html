@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Prototype Pennsylvania bridge maintenance budget planner.">
+    <link rel="icon" type="image/png" href="./logo.png">
+    <title>Budget Planner | Ben&sup2; Bridges</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #172033;
+        background: #edf2f6;
+        --navy: #102033;
+        --blue: #2563eb;
+        --blue-dark: #1d4ed8;
+        --muted: #64748b;
+        --line: #dbe3ec;
+        --surface: #ffffff;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body { min-height: 100vh; margin: 0; background: #edf2f6; }
+      button, input { font: inherit; }
+
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-bottom: 1px solid rgb(255 255 255 / 8%);
+        color: #f8fafc;
+        background: rgb(16 32 51 / 94%);
+        backdrop-filter: blur(14px);
+      }
+
+      .nav-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: min(1180px, calc(100% - 40px));
+        min-height: 68px;
+        margin: 0 auto;
+      }
+
+      .brand { display: inline-flex; align-items: center; gap: 11px; color: #f8fafc; text-decoration: none; font-weight: 760; letter-spacing: -0.02em; }
+      .brand-icon { width: 38px; height: 38px; overflow: hidden; border: 1px solid rgb(255 255 255 / 24%); border-radius: 11px; background: #ffffff; box-shadow: 0 9px 24px rgb(37 99 235 / 24%); }
+      .brand-icon img { display: block; width: 100%; height: 100%; object-fit: cover; }
+      .nav-links { display: flex; align-items: center; gap: 12px; }
+      .nav-button { border: 1px solid rgb(255 255 255 / 18%); border-radius: 999px; padding: 9px 15px; color: #ffffff; background: rgb(255 255 255 / 9%); text-decoration: none; font-size: 0.82rem; font-weight: 650; }
+      .nav-button:hover { background: rgb(255 255 255 / 14%); }
+
+      .planner-hero { color: #ffffff; background: radial-gradient(circle at 85% 10%, rgb(59 130 246 / 30%), transparent 28rem), linear-gradient(135deg, #102033, #173a62); }
+      .hero-inner { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 78px 0 92px; }
+      .eyebrow { margin: 0 0 16px; color: #93c5fd; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+      h1 { max-width: 760px; margin: 0; font-size: clamp(2.7rem, 6vw, 5rem); line-height: 1; letter-spacing: -0.055em; }
+      .hero-intro { max-width: 720px; margin: 22px 0 34px; color: #cbd5e1; line-height: 1.7; }
+
+      .planner-form { display: grid; grid-template-columns: 1fr 1fr 1.35fr auto; align-items: end; gap: 14px; border: 1px solid rgb(255 255 255 / 14%); border-radius: 18px; padding: 22px; background: rgb(255 255 255 / 8%); box-shadow: 0 22px 50px rgb(2 8 23 / 20%); backdrop-filter: blur(12px); }
+      .field { display: grid; gap: 8px; }
+      .field label { color: #e2e8f0; font-size: 0.78rem; font-weight: 750; }
+      .field input { width: 100%; min-height: 46px; border: 1px solid rgb(255 255 255 / 22%); border-radius: 10px; padding: 0 13px; color: #172033; background: #ffffff; outline: none; }
+      .field input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgb(96 165 250 / 25%); }
+      .calculate-button { min-height: 46px; border: 0; border-radius: 10px; padding: 0 22px; color: #ffffff; background: var(--blue); cursor: pointer; font-weight: 800; }
+      .calculate-button:hover { background: #3b82f6; }
+      .calculate-button:disabled { cursor: wait; opacity: 0.65; }
+      .form-status { min-height: 20px; margin: 13px 0 0; color: #bfdbfe; font-size: 0.8rem; }
+      .form-status.error { color: #fecaca; }
+
+      .results { width: min(1380px, calc(100% - 36px)); margin: 0 auto; padding: 68px 0 90px; }
+      .results[hidden] { display: none; }
+      .results-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+      .results-heading h2 { margin: 0 0 8px; color: var(--navy); font-size: clamp(2rem, 4vw, 3.1rem); letter-spacing: -0.045em; }
+      .results-heading p { margin: 0; color: var(--muted); }
+      .scenario-label { color: var(--blue); font-size: 0.78rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+
+      .algorithm-note { margin-bottom: 20px; border: 1px dashed #93c5fd; border-radius: 14px; padding: 15px 18px; color: #1e3a8a; background: #eff6ff; font-size: 0.84rem; line-height: 1.5; }
+      .metric-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 22px; }
+      .metric { min-width: 0; border: 1px solid var(--line); border-radius: 14px; padding: 19px; background: var(--surface); box-shadow: 0 8px 26px rgb(15 23 42 / 6%); }
+      .metric span { display: block; margin-bottom: 8px; color: var(--muted); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
+      .metric strong { color: var(--navy); font-size: clamp(1.25rem, 2.4vw, 1.85rem); letter-spacing: -0.035em; }
+
+      .summary-grid { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 18px; margin-bottom: 22px; }
+      .panel { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 10px 30px rgb(15 23 42 / 7%); }
+      .panel-header { border-bottom: 1px solid var(--line); padding: 18px 20px; }
+      .panel-header h3 { margin: 0 0 5px; color: var(--navy); font-size: 1rem; }
+      .panel-header p { margin: 0; color: var(--muted); font-size: 0.78rem; line-height: 1.45; }
+      .bridge-list { max-height: 300px; overflow-y: auto; margin: 0; padding: 10px; list-style: none; }
+      .empty-state { padding: 28px 18px; color: var(--muted); font-size: 0.84rem; line-height: 1.55; text-align: center; }
+      .bridge-list button { width: 100%; border: 0; border-radius: 10px; padding: 12px; color: #334155; background: transparent; cursor: pointer; text-align: left; }
+      .bridge-list button:hover, .bridge-list button.is-active { color: #1e3a8a; background: #eff6ff; }
+      .bridge-list strong { display: block; margin-bottom: 3px; font-size: 0.82rem; }
+      .bridge-list span { color: var(--muted); font-size: 0.72rem; }
+
+      .detail { min-height: 188px; padding: 20px; }
+      .detail h3 { margin: 0 0 5px; color: var(--navy); font-size: 1.12rem; }
+      .detail-location { margin: 0 0 18px; color: var(--muted); font-size: 0.78rem; }
+      .detail-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+      .detail-item { border-top: 2px solid #dbeafe; padding-top: 10px; }
+      .detail-item span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+      .detail-item strong { color: var(--navy); font-size: 0.82rem; line-height: 1.4; }
+
+      .map-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 18px; }
+      .map-panel { overflow: hidden; }
+      .map-title-row { display: flex; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); padding: 16px 19px; }
+      .map-title-row h3 { margin: 0; color: var(--navy); font-size: 1rem; }
+      .map-title-row span { color: var(--muted); font-size: 0.76rem; }
+      #budget-map { width: 100%; height: 610px; background: #e2e8f0; }
+      .fixed-panel { min-height: 610px; overflow: hidden; }
+      .fixed-list { max-height: 510px; overflow-y: auto; margin: 0; padding: 10px; list-style: none; }
+      .fixed-list li { border-bottom: 1px solid #edf2f7; padding: 12px 10px; }
+      .fixed-list strong { display: block; margin-bottom: 4px; color: var(--navy); font-size: 0.8rem; }
+      .fixed-list span { color: var(--muted); font-size: 0.72rem; }
+
+      .budget-popup .maplibregl-popup-content { min-width: 210px; border-radius: 12px; padding: 13px; box-shadow: 0 14px 35px rgb(15 23 42 / 22%); }
+      .popup-name { margin: 0 0 5px; color: var(--navy); font-size: 0.85rem; font-weight: 800; line-height: 1.35; }
+      .popup-meta { margin: 0 0 10px; color: var(--muted); font-size: 0.72rem; line-height: 1.4; }
+      .popup-fix { width: 100%; min-height: 35px; border: 0; border-radius: 8px; color: #ffffff; background: var(--blue); cursor: pointer; font-weight: 800; }
+      .popup-fix:disabled { color: #64748b; background: #e2e8f0; cursor: not-allowed; }
+      .maplibregl-ctrl-group { overflow: hidden; border-radius: 8px; }
+
+      @media (max-width: 1050px) {
+        .planner-form { grid-template-columns: repeat(2, 1fr); }
+        .calculate-button { width: 100%; }
+        .metric-grid { grid-template-columns: repeat(3, 1fr); }
+        .map-workspace { grid-template-columns: 1fr; }
+        .fixed-panel { min-height: 0; }
+        .fixed-list { max-height: 280px; }
+      }
+
+      @media (max-width: 760px) {
+        .nav-wrap, .hero-inner { width: min(100% - 28px, 1180px); }
+        .planner-form, .summary-grid { grid-template-columns: 1fr; }
+        .metric-grid { grid-template-columns: repeat(2, 1fr); }
+        .results-heading { align-items: flex-start; flex-direction: column; }
+        .detail-grid { grid-template-columns: repeat(2, 1fr); }
+        #budget-map { height: 520px; }
+      }
+
+      @media (max-width: 460px) {
+        .brand > span:last-child { display: none; }
+        .metric-grid { grid-template-columns: 1fr; }
+        .detail-grid { grid-template-columns: 1fr; }
+        .results { width: min(100% - 22px, 1380px); }
+      }
+
+      @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav-wrap" aria-label="Primary navigation">
+        <a class="brand" href="./index.html">
+          <span class="brand-icon" aria-hidden="true"><img src="./logo.png" alt=""></span>
+          <span>Ben&sup2; Bridges</span>
+        </a>
+        <div class="nav-links">
+          <a class="nav-button" href="./map.html">Bridge map</a>
+          <a class="nav-button" href="./index.html">Back to home</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="planner-hero">
+        <div class="hero-inner">
+          <p class="eyebrow">Prototype maintenance scenario</p>
+          <h1>Plan a bridge maintenance budget.</h1>
+          <p class="hero-intro">Choose a budget, Pennsylvania county, and future prioritization method. The map and manual budget controls work now; the recommendation algorithm and prediction fields remain ready for your team to connect.</p>
+
+          <form id="planner-form" class="planner-form">
+            <div class="field">
+              <label for="budget-input">Available budget</label>
+              <input id="budget-input" type="number" min="0" step="1000" value="10000" inputmode="decimal" required>
+            </div>
+            <div class="field">
+              <label for="county-input">Area (county)</label>
+              <input id="county-input" type="search" list="county-options" placeholder="Search counties" autocomplete="off" required>
+              <datalist id="county-options"></datalist>
+            </div>
+            <div class="field">
+              <label for="method-input">Method</label>
+              <input id="method-input" type="search" list="method-options" placeholder="Search methods" autocomplete="off" required>
+              <datalist id="method-options">
+                <option value="Balanced"></option>
+                <option value="Safety/condition focused"></option>
+                <option value="Traffic focused"></option>
+                <option value="Equity/social-impact focused"></option>
+              </datalist>
+            </div>
+            <button id="calculate-button" class="calculate-button" type="submit" disabled>Loading data...</button>
+          </form>
+          <p id="form-status" class="form-status" role="status">Loading bridge records...</p>
+        </div>
+      </section>
+
+      <section id="results" class="results" hidden>
+        <div class="results-heading">
+          <div>
+            <p class="scenario-label">Scenario output</p>
+            <h2 id="scenario-title">County budget plan</h2>
+            <p id="scenario-subtitle"></p>
+          </div>
+        </div>
+
+        <div class="algorithm-note"><strong>Recommendation algorithm not connected:</strong> bridge predictions and automatic rankings are intentionally blank. Click bridge dots and use <strong>Fix</strong> to test county filtering and budget behavior at a temporary cost of $1,000 per bridge.</div>
+
+        <div class="metric-grid" aria-label="Budget summary">
+          <div class="metric"><span>Recommended to fix</span><strong id="recommended-count">0</strong></div>
+          <div class="metric"><span>Total budget</span><strong id="total-budget">$0</strong></div>
+          <div class="metric"><span>Used budget</span><strong id="used-budget">$0</strong></div>
+          <div class="metric"><span>Budget left</span><strong id="budget-left">$0</strong></div>
+          <div class="metric"><span>Daily traffic covered</span><strong id="traffic-covered">0</strong></div>
+        </div>
+
+        <div class="summary-grid">
+          <section class="panel" aria-label="Recommended bridge list">
+            <div class="panel-header">
+              <h3>Recommended bridge list</h3>
+              <p>All bridges in the selected county are temporarily listed until the ranking algorithm is added.</p>
+            </div>
+            <ul id="recommended-list" class="bridge-list"><li class="empty-state">No bridges selected. Choose a bridge from the county map and click Fix.</li></ul>
+          </section>
+
+          <section class="panel" aria-label="Selected bridge details">
+            <div class="panel-header">
+              <h3>Bridge recommendation details</h3>
+              <p>Click an item in the recommendation list to inspect its planned model outputs.</p>
+            </div>
+            <div id="bridge-detail" class="detail"><div class="empty-state">Select a bridge to view deterioration probability, predicted cost, priority score, and recommendation reason.</div></div>
+          </section>
+        </div>
+
+        <div class="map-workspace">
+          <section class="panel map-panel" aria-label="Selected county bridge map">
+            <div class="map-title-row"><h3 id="map-title">County bridges</h3><span id="county-bridge-count">0 bridges</span></div>
+            <div id="budget-map" aria-label="Map of bridges in the selected county"></div>
+          </section>
+
+          <aside class="panel fixed-panel" aria-label="Fixed bridges">
+            <div class="panel-header">
+              <h3>Fixed bridges</h3>
+              <p>Each manual selection currently uses $1,000 of the available budget.</p>
+            </div>
+            <ul id="fixed-list" class="fixed-list"><li class="empty-state">No bridges fixed yet.</li></ul>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+    <script>
+      const PROTOTYPE_COST = 1000;
+      const METHODS = ["Balanced", "Safety/condition focused", "Traffic focused", "Equity/social-impact focused"];
+      const COUNTIES = [
+        ["001", "Adams County"], ["003", "Allegheny County"], ["005", "Armstrong County"], ["007", "Beaver County"], ["009", "Bedford County"], ["011", "Berks County"], ["013", "Blair County"], ["015", "Bradford County"], ["017", "Bucks County"], ["019", "Butler County"], ["021", "Cambria County"], ["023", "Cameron County"], ["025", "Carbon County"], ["027", "Centre County"], ["029", "Chester County"], ["031", "Clarion County"], ["033", "Clearfield County"], ["035", "Clinton County"], ["037", "Columbia County"], ["039", "Crawford County"], ["041", "Cumberland County"], ["043", "Dauphin County"], ["045", "Delaware County"], ["047", "Elk County"], ["049", "Erie County"], ["051", "Fayette County"], ["053", "Forest County"], ["055", "Franklin County"], ["057", "Fulton County"], ["059", "Greene County"], ["061", "Huntingdon County"], ["063", "Indiana County"], ["065", "Jefferson County"], ["067", "Juniata County"], ["069", "Lackawanna County"], ["071", "Lancaster County"], ["073", "Lawrence County"], ["075", "Lebanon County"], ["077", "Lehigh County"], ["079", "Luzerne County"], ["081", "Lycoming County"], ["083", "McKean County"], ["085", "Mercer County"], ["087", "Mifflin County"], ["089", "Monroe County"], ["091", "Montgomery County"], ["093", "Montour County"], ["095", "Northampton County"], ["097", "Northumberland County"], ["099", "Perry County"], ["101", "Philadelphia County"], ["103", "Pike County"], ["105", "Potter County"], ["107", "Schuylkill County"], ["109", "Snyder County"], ["111", "Somerset County"], ["113", "Sullivan County"], ["115", "Susquehanna County"], ["117", "Tioga County"], ["119", "Union County"], ["121", "Venango County"], ["123", "Warren County"], ["125", "Washington County"], ["127", "Wayne County"], ["129", "Westmoreland County"], ["131", "Wyoming County"], ["133", "York County"]
+      ];
+
+      const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+      const integer = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+      const plannerForm = document.getElementById("planner-form");
+      const budgetInput = document.getElementById("budget-input");
+      const countyInput = document.getElementById("county-input");
+      const methodInput = document.getElementById("method-input");
+      const calculateButton = document.getElementById("calculate-button");
+      const formStatus = document.getElementById("form-status");
+      const results = document.getElementById("results");
+      const recommendedList = document.getElementById("recommended-list");
+      const fixedList = document.getElementById("fixed-list");
+      const bridgeDetail = document.getElementById("bridge-detail");
+
+      let allBridgeData = null;
+      let countyFeatures = [];
+      let fixedBridgeIds = new Set();
+      let selectedBridgeId = null;
+      let activeBudget = 0;
+      let activeMethod = "";
+      let activeCounty = null;
+      let plannerMap = null;
+      let mapReady = false;
+      let activePopup = null;
+
+      const countyOptions = document.getElementById("county-options");
+      COUNTIES.forEach(function (county) {
+        const option = document.createElement("option");
+        option.value = county[1];
+        countyOptions.appendChild(option);
+      });
+
+      function normalize(value) { return value.trim().toLowerCase(); }
+      function findCounty(value) { return COUNTIES.find(function (county) { return normalize(county[1]) === normalize(value); }); }
+      function findMethod(value) { return METHODS.find(function (method) { return normalize(method) === normalize(value); }); }
+      function bridgeName(feature) {
+        const properties = feature.properties || {};
+        if (properties.facility && properties.featureCrossed) return properties.facility + " over " + properties.featureCrossed;
+        return properties.facility || properties.featureCrossed || "Bridge " + feature.id;
+      }
+      function findCountyBridge(id) { return countyFeatures.find(function (feature) { return String(feature.id) === String(id); }); }
+      function selectedFeatures() { return countyFeatures.filter(function (feature) { return fixedBridgeIds.has(String(feature.id)); }); }
+      function remainingBudget() { return Math.max(0, activeBudget - fixedBridgeIds.size * PROTOTYPE_COST); }
+
+      function updateMetrics() {
+        const fixed = selectedFeatures();
+        const used = fixed.length * PROTOTYPE_COST;
+        const traffic = fixed.reduce(function (sum, feature) { return sum + (Number(feature.properties.adt) || 0); }, 0);
+        document.getElementById("recommended-count").textContent = integer.format(countyFeatures.length);
+        document.getElementById("total-budget").textContent = currency.format(activeBudget);
+        document.getElementById("used-budget").textContent = currency.format(used);
+        document.getElementById("budget-left").textContent = currency.format(Math.max(0, activeBudget - used));
+        document.getElementById("traffic-covered").textContent = integer.format(traffic);
+      }
+
+      function renderLists() {
+        const fixed = selectedFeatures();
+        recommendedList.replaceChildren();
+        fixedList.replaceChildren();
+
+        countyFeatures.forEach(function (feature) {
+          const listItem = document.createElement("li");
+          const listButton = document.createElement("button");
+          listButton.type = "button";
+          if (String(feature.id) === selectedBridgeId) listButton.className = "is-active";
+          const title = document.createElement("strong");
+          title.textContent = bridgeName(feature);
+          const meta = document.createElement("span");
+          meta.textContent = "Condition " + (feature.properties.condition || "Unknown") +
+            " | ADT " + integer.format(Number(feature.properties.adt) || 0) +
+            " | " + currency.format(PROTOTYPE_COST);
+          listButton.append(title, meta);
+          listButton.addEventListener("click", function () { showBridgeDetails(feature); });
+          listItem.appendChild(listButton);
+          recommendedList.appendChild(listItem);
+        });
+
+        if (!fixed.length) {
+          const fixedEmpty = document.createElement("li");
+          fixedEmpty.className = "empty-state";
+          fixedEmpty.textContent = "No bridges fixed yet.";
+          fixedList.appendChild(fixedEmpty);
+          return;
+        }
+
+        fixed.forEach(function (feature) {
+          const fixedItem = document.createElement("li");
+          const fixedName = document.createElement("strong");
+          fixedName.textContent = bridgeName(feature);
+          const fixedMeta = document.createElement("span");
+          fixedMeta.textContent = "ADT " + integer.format(Number(feature.properties.adt) || 0) + " | " + currency.format(PROTOTYPE_COST);
+          fixedItem.append(fixedName, fixedMeta);
+          fixedList.appendChild(fixedItem);
+        });
+      }
+
+      function showBridgeDetails(feature) {
+        selectedBridgeId = String(feature.id);
+        if (plannerMap && mapReady && plannerMap.getLayer("selected-county-bridge")) {
+          plannerMap.setFilter("selected-county-bridge", ["==", ["get", "bridgeId"], selectedBridgeId]);
+        }
+        if (plannerMap && mapReady) {
+          plannerMap.flyTo({
+            center: feature.geometry.coordinates,
+            zoom: Math.max(plannerMap.getZoom(), 14),
+            duration: 700,
+            essential: true
+          });
+        }
+        const properties = feature.properties || {};
+        bridgeDetail.replaceChildren();
+        const title = document.createElement("h3");
+        title.textContent = bridgeName(feature);
+        const location = document.createElement("p");
+        location.className = "detail-location";
+        location.textContent = properties.location || activeCounty[1];
+        const detailGrid = document.createElement("div");
+        detailGrid.className = "detail-grid";
+        const details = [
+          ["Deterioration probability", "Pending model"],
+          ["Predicted cost", currency.format(PROTOTYPE_COST) + " prototype"],
+          ["Priority score", "Pending model"],
+          ["Recommendation reason", "Pending algorithm"]
+        ];
+        details.forEach(function (detail) {
+          const item = document.createElement("div");
+          item.className = "detail-item";
+          const label = document.createElement("span");
+          label.textContent = detail[0];
+          const value = document.createElement("strong");
+          value.textContent = detail[1];
+          item.append(label, value);
+          detailGrid.appendChild(item);
+        });
+        bridgeDetail.append(title, location, detailGrid);
+        renderLists();
+      }
+
+      function mapData() {
+        return {
+          type: "FeatureCollection",
+          features: countyFeatures.map(function (feature) {
+            return {
+              type: "Feature",
+              id: feature.id,
+              geometry: feature.geometry,
+              properties: Object.assign({}, feature.properties, { fixed: fixedBridgeIds.has(String(feature.id)), bridgeId: String(feature.id) })
+            };
+          })
+        };
+      }
+
+      function refreshMapData() {
+        if (!mapReady) return;
+        plannerMap.getSource("county-bridges").setData(mapData());
+      }
+
+      function fixBridge(feature) {
+        const id = String(feature.id);
+        if (fixedBridgeIds.has(id) || remainingBudget() < PROTOTYPE_COST) return;
+        fixedBridgeIds.add(id);
+        selectedBridgeId = id;
+        updateMetrics();
+        renderLists();
+        showBridgeDetails(feature);
+        refreshMapData();
+        if (activePopup) activePopup.remove();
+      }
+
+      function fitCounty() {
+        if (!mapReady || !countyFeatures.length) return;
+        const bounds = new maplibregl.LngLatBounds();
+        countyFeatures.forEach(function (feature) { bounds.extend(feature.geometry.coordinates); });
+        plannerMap.resize();
+        plannerMap.fitBounds(bounds, { padding: 30, maxZoom: 13, duration: 700 });
+      }
+
+      function createMap() {
+        plannerMap = new maplibregl.Map({
+          container: "budget-map",
+          style: "https://tiles.openfreemap.org/styles/liberty",
+          center: [-77.7, 40.9],
+          zoom: 6.5,
+          minZoom: 5,
+          maxZoom: 18,
+          dragRotate: false,
+          pitchWithRotate: false,
+          attributionControl: false
+        });
+        plannerMap.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+        plannerMap.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+
+        plannerMap.on("load", function () {
+          plannerMap.addSource("county-bridges", { type: "geojson", data: mapData() });
+          const firstLabel = plannerMap.getStyle().layers.find(function (layer) { return layer.type === "symbol"; });
+          plannerMap.addLayer({
+            id: "county-bridge-points",
+            type: "circle",
+            source: "county-bridges",
+            paint: {
+              "circle-color": ["case", ["==", ["get", "fixed"], true], "#2563eb", ["match", ["get", "condition"], "G", "#16a34a", "F", "#f59e0b", "P", "#dc2626", "#64748b"]],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 5, 12, 8],
+              "circle-stroke-width": 1.4,
+              "circle-stroke-color": "#ffffff",
+              "circle-opacity": 0.9
+            }
+          }, firstLabel && firstLabel.id);
+          plannerMap.addLayer({
+            id: "selected-county-bridge",
+            type: "circle",
+            source: "county-bridges",
+            filter: ["==", ["get", "bridgeId"], ""],
+            paint: {
+              "circle-color": ["case", ["==", ["get", "fixed"], true], "#2563eb", ["match", ["get", "condition"], "G", "#16a34a", "F", "#f59e0b", "P", "#dc2626", "#64748b"]],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 10, 12, 16],
+              "circle-stroke-width": 1.4,
+              "circle-stroke-color": "#ffffff",
+              "circle-opacity": 0.9
+            }
+          });
+          mapReady = true;
+          fitCounty();
+        });
+
+        plannerMap.on("click", "county-bridge-points", function (event) {
+          const clicked = event.features && event.features[0];
+          if (!clicked) return;
+          const original = findCountyBridge(clicked.properties.bridgeId);
+          if (!original) return;
+          const properties = original.properties || {};
+          const content = document.createElement("div");
+          const name = document.createElement("p");
+          name.className = "popup-name";
+          name.textContent = bridgeName(original);
+          const meta = document.createElement("p");
+          meta.className = "popup-meta";
+          meta.textContent = "Condition " + (properties.condition || "Unknown") + " | ADT " + integer.format(Number(properties.adt) || 0);
+          const fixButton = document.createElement("button");
+          fixButton.type = "button";
+          fixButton.className = "popup-fix";
+          const alreadyFixed = fixedBridgeIds.has(String(original.id));
+          const affordable = remainingBudget() >= PROTOTYPE_COST;
+          fixButton.disabled = alreadyFixed || !affordable;
+          fixButton.textContent = alreadyFixed ? "Already fixed" : affordable ? "Fix - " + currency.format(PROTOTYPE_COST) : "Not enough budget";
+          fixButton.addEventListener("click", function () { fixBridge(original); });
+          content.append(name, meta, fixButton);
+          activePopup = new maplibregl.Popup({ offset: 11, className: "budget-popup" }).setLngLat(original.geometry.coordinates).setDOMContent(content).addTo(plannerMap);
+        });
+        plannerMap.on("mouseenter", "county-bridge-points", function () { plannerMap.getCanvas().style.cursor = "pointer"; });
+        plannerMap.on("mouseleave", "county-bridge-points", function () { plannerMap.getCanvas().style.cursor = ""; });
+      }
+
+      function startScenario() {
+        activeBudget = Number(budgetInput.value);
+        activeCounty = findCounty(countyInput.value);
+        activeMethod = findMethod(methodInput.value);
+
+        if (!Number.isFinite(activeBudget) || activeBudget < 0) {
+          formStatus.textContent = "Enter a valid non-negative budget.";
+          formStatus.className = "form-status error";
+          budgetInput.focus();
+          return;
+        }
+        if (!activeCounty) {
+          formStatus.textContent = "Choose a county from the searchable list.";
+          formStatus.className = "form-status error";
+          countyInput.focus();
+          return;
+        }
+        if (!activeMethod) {
+          formStatus.textContent = "Choose one of the four available methods.";
+          formStatus.className = "form-status error";
+          methodInput.focus();
+          return;
+        }
+
+        countyFeatures = allBridgeData.features.filter(function (feature) { return feature.properties.countyCode === activeCounty[0]; });
+        fixedBridgeIds = new Set();
+        selectedBridgeId = null;
+        if (plannerMap && mapReady && plannerMap.getLayer("selected-county-bridge")) {
+          plannerMap.setFilter("selected-county-bridge", ["==", ["get", "bridgeId"], ""]);
+        }
+        bridgeDetail.innerHTML = '<div class="empty-state">Select a bridge to view deterioration probability, predicted cost, priority score, and recommendation reason.</div>';
+        document.getElementById("scenario-title").textContent = activeCounty[1] + " budget plan";
+        document.getElementById("scenario-subtitle").textContent = integer.format(countyFeatures.length) + " available bridge records";
+        document.getElementById("map-title").textContent = activeCounty[1] + " bridges";
+        document.getElementById("county-bridge-count").textContent = integer.format(countyFeatures.length) + " bridges";
+        results.hidden = false;
+        updateMetrics();
+        renderLists();
+        if (!plannerMap) createMap();
+        else {
+          plannerMap.resize();
+          refreshMapData();
+          fitCounty();
+        }
+        formStatus.textContent = "Scenario ready. The page has opened the county results below.";
+        formStatus.className = "form-status";
+        window.setTimeout(function () { results.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+      }
+
+      plannerForm.addEventListener("submit", function (event) { event.preventDefault(); startScenario(); });
+
+      if (window.location.protocol === "file:") {
+        formStatus.textContent = "Open start-map.bat so the planner can load bridge data.";
+        formStatus.className = "form-status error";
+      } else {
+        fetch("./Data/pa_bridges_2025_map.geojson?v=20260728-2")
+          .then(function (response) { if (!response.ok) throw new Error("Data request failed"); return response.json(); })
+          .then(function (data) {
+            allBridgeData = data;
+            calculateButton.disabled = false;
+            calculateButton.textContent = "Calculate";
+            formStatus.textContent = "Bridge data ready. Search for a county and choose a method.";
+          })
+          .catch(function (error) {
+            formStatus.textContent = "Bridge data could not be loaded. Start the local server and refresh.";
+            formStatus.className = "form-status error";
+            console.error(error);
+          });
+      }
+    </script>
+  </body>
+</html>

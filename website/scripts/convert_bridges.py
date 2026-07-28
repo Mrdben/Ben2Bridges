@@ -207,11 +207,13 @@ def convert() -> dict[str, object]:
                 "properties": {
                     key: feature["properties"][key]
                     for key in (
+                        "countyCode",
                         "facility",
                         "featureCrossed",
                         "location",
                         "condition",
                         "yearBuilt",
+                        "adt",
                         "materialKind",
                         "structureType",
                         "deckArea",
