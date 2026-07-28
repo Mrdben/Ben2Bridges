@@ -3,605 +3,460 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ben&sup2; Bridges</title>
-    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+    <meta name="description" content="Ben² Bridges is a Pennsylvania bridge maintenance decision-support project.">
+    <title>Ben&sup2; Bridges | Home</title>
     <style>
       :root {
         color-scheme: light;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        color: #172033;
-        background: #edf2f6;
+        color: #152235;
+        background: #f4f7fa;
+        --navy: #102033;
+        --blue: #2563eb;
+        --blue-dark: #1d4ed8;
+        --sky: #dbeafe;
+        --muted: #64748b;
+        --line: #dbe3ec;
+        --white: #ffffff;
       }
 
       * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body { margin: 0; overflow-x: hidden; background: #f4f7fa; }
+      a { color: inherit; }
 
-      html, body {
-        min-height: 100%;
-        margin: 0;
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        border-bottom: 1px solid rgb(255 255 255 / 8%);
+        color: #f8fafc;
+        background: rgb(16 32 51 / 94%);
+        backdrop-filter: blur(14px);
       }
 
-      body {
-        min-height: 100vh;
-        background:
-          radial-gradient(circle at top right, rgb(191 219 254 / 32%), transparent 34rem),
-          #edf2f6;
-      }
-
-      header {
+      .nav-wrap {
         display: flex;
         align-items: center;
-        min-height: 64px;
-        padding: 0 28px;
-        color: #f8fafc;
-        background: #12202e;
-        box-shadow: 0 3px 14px rgb(15 23 42 / 18%);
+        justify-content: space-between;
+        width: min(1180px, calc(100% - 40px));
+        min-height: 68px;
+        margin: 0 auto;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        text-decoration: none;
+        font-weight: 760;
+        letter-spacing: -0.02em;
+      }
+
+      .brand-icon,
+      .icon-placeholder {
+        display: grid;
+        place-items: center;
+        border: 1px solid rgb(255 255 255 / 24%);
+        color: #ffffff;
+        background: linear-gradient(145deg, #3b82f6, #1d4ed8);
+        box-shadow: 0 9px 24px rgb(37 99 235 / 24%);
+      }
+
+      .brand-icon {
+        width: 38px;
+        height: 38px;
+        overflow: hidden;
+        border-radius: 11px;
+        font-size: 0.85rem;
+        background: #ffffff;
+      }
+
+      .brand-icon img,
+      .icon-placeholder img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        font-size: 0.82rem;
+        font-weight: 650;
+      }
+
+      .nav-links a { color: #cbd5e1; text-decoration: none; }
+      .nav-links a:hover { color: #ffffff; }
+
+      .nav-button {
+        border: 1px solid rgb(255 255 255 / 18%);
+        border-radius: 999px;
+        padding: 9px 15px;
+        color: #ffffff !important;
+        background: rgb(255 255 255 / 9%);
+      }
+
+      .hero {
+        position: relative;
+        overflow: hidden;
+        color: #ffffff;
+        background:
+          radial-gradient(circle at 85% 20%, rgb(59 130 246 / 36%), transparent 28rem),
+          linear-gradient(135deg, #102033 0%, #142d49 58%, #173a62 100%);
+      }
+
+      .hero::after {
+        position: absolute;
+        right: -10%;
+        bottom: -45%;
+        width: 660px;
+        height: 660px;
+        border: 1px solid rgb(147 197 253 / 18%);
+        border-radius: 50%;
+        content: "";
+        box-shadow: 0 0 0 80px rgb(147 197 253 / 4%), 0 0 0 160px rgb(147 197 253 / 3%);
+      }
+
+      .hero-grid {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        align-items: center;
+        gap: 70px;
+        width: min(1180px, calc(100% - 40px));
+        min-height: 650px;
+        margin: 0 auto;
+        padding: 72px 0 88px;
+      }
+
+      .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 20px;
+        color: #93c5fd;
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .kicker::before {
+        width: 25px;
+        height: 2px;
+        background: #60a5fa;
+        content: "";
       }
 
       h1 {
+        max-width: 720px;
         margin: 0;
-        font-size: 1.35rem;
-        font-weight: 680;
-        letter-spacing: -0.02em;
+        font-size: clamp(3rem, 6vw, 5.5rem);
+        font-weight: 760;
+        letter-spacing: -0.055em;
+        line-height: 0.98;
       }
 
-      .app-shell {
-        display: grid;
-        grid-template-columns: 292px minmax(0, 1fr);
-        gap: 18px;
-        width: min(1480px, 100%);
-        height: calc(100vh - 64px);
-        min-height: 600px;
-        margin: 0 auto;
-        padding: 18px;
+      .hero-copy > p:not(.kicker) {
+        max-width: 610px;
+        margin: 25px 0 30px;
+        color: #cbd5e1;
+        font-size: 1.05rem;
+        line-height: 1.72;
       }
 
-      .filters-panel,
-      .map-card {
-        border: 1px solid rgb(148 163 184 / 24%);
-        border-radius: 14px;
-        background: #ffffff;
-        box-shadow: 0 12px 34px rgb(15 23 42 / 10%);
-      }
+      .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 
-      .filters-panel {
-        overflow-y: auto;
-        padding: 22px;
-      }
-
-      .eyebrow {
-        margin: 0 0 5px;
-        color: #2563eb;
-        font-size: 0.72rem;
-        font-weight: 750;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-
-      h2 {
-        margin: 0 0 6px;
-        color: #172033;
-        font-size: 1.25rem;
-        letter-spacing: -0.02em;
-      }
-
-      .panel-intro {
-        margin: 0 0 20px;
-        color: #64748b;
-        font-size: 0.83rem;
-        line-height: 1.45;
-      }
-
-      .field {
-        display: grid;
-        gap: 7px;
-        margin-bottom: 15px;
-      }
-
-      label {
-        color: #334155;
-        font-size: 0.78rem;
-        font-weight: 700;
-      }
-
-      input,
-      select,
-      button {
-        width: 100%;
-        min-height: 40px;
-        border-radius: 8px;
-        font: inherit;
-      }
-
-      input,
-      select {
-        border: 1px solid #cbd5e1;
-        padding: 0 11px;
-        color: #172033;
-        background: #ffffff;
-        outline: none;
-      }
-
-      input:focus,
-      select:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgb(59 130 246 / 14%);
-      }
-
-      .field-hint {
-        margin: -2px 0 0;
-        color: #94a3b8;
-        font-size: 0.7rem;
-      }
-
-      button {
-        margin-top: 2px;
-        border: 1px solid #cbd5e1;
-        color: #334155;
-        background: #f8fafc;
-        cursor: pointer;
-        font-size: 0.82rem;
-        font-weight: 700;
-      }
-
-      button:hover { background: #eef2f7; }
-
-      .results {
-        margin: 17px 0;
-        padding: 12px;
-        border-radius: 9px;
-        color: #1e3a8a;
-        background: #eff6ff;
-        font-size: 0.78rem;
-        line-height: 1.4;
-      }
-
-      .legend {
-        padding-top: 17px;
-        border-top: 1px solid #e2e8f0;
-      }
-
-      .legend-title {
-        margin: 0 0 10px;
-        color: #334155;
-        font-size: 0.75rem;
-        font-weight: 750;
-        text-transform: uppercase;
-      }
-
-      .legend-row {
-        display: flex;
+      .button {
+        display: inline-flex;
         align-items: center;
-        gap: 9px;
-        margin: 8px 0;
-        color: #475569;
-        font-size: 0.77rem;
-      }
-
-      .legend-dot {
-        width: 10px;
-        height: 10px;
-        border: 1px solid #ffffff;
-        border-radius: 50%;
-        box-shadow: 0 0 0 1px rgb(15 23 42 / 12%);
-      }
-
-      .good { background: #16a34a; }
-      .fair { background: #f59e0b; }
-      .poor { background: #dc2626; }
-
-      .size-note {
-        margin: 12px 0 0;
-        color: #64748b;
-        font-size: 0.72rem;
-        line-height: 1.4;
-      }
-
-      .map-card {
-        position: relative;
-        min-width: 0;
-        min-height: 0;
-        overflow: hidden;
-      }
-
-      #map {
-        width: 100%;
-        height: 100%;
-        min-height: 540px;
-      }
-
-      #loading {
-        position: absolute;
-        z-index: 3;
-        right: 16px;
-        bottom: 34px;
-        padding: 9px 12px;
-        border: 1px solid rgb(148 163 184 / 35%);
-        border-radius: 8px;
-        color: #334155;
-        background: rgb(255 255 255 / 92%);
-        box-shadow: 0 4px 16px rgb(15 23 42 / 14%);
-        font-size: 0.78rem;
-        backdrop-filter: blur(6px);
-      }
-
-      .maplibregl-ctrl-group {
-        overflow: hidden;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgb(15 23 42 / 18%);
-      }
-
-      .bridge-hover-popup .maplibregl-popup-content {
-        max-width: 270px;
-        padding: 10px 12px;
-        border-radius: 8px;
-        box-shadow: 0 8px 24px rgb(15 23 42 / 18%);
-      }
-
-      .hover-name {
-        color: #172033;
-        font-size: 0.82rem;
+        justify-content: center;
+        min-height: 46px;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        padding: 0 19px;
+        text-decoration: none;
+        font-size: 0.85rem;
         font-weight: 750;
-        line-height: 1.3;
+        transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
       }
 
-      .hover-detail {
-        margin-top: 3px;
-        color: #64748b;
-        font-size: 0.7rem;
-        line-height: 1.35;
+      .button:hover { transform: translateY(-2px); }
+      .button-primary { color: #ffffff; background: #2563eb; box-shadow: 0 12px 30px rgb(37 99 235 / 30%); }
+      .button-primary:hover { background: #3b82f6; box-shadow: 0 15px 34px rgb(37 99 235 / 38%); }
+      .button-secondary { border-color: rgb(255 255 255 / 20%); color: #e2e8f0; background: rgb(255 255 255 / 7%); }
+      .button-secondary:hover { background: rgb(255 255 255 / 12%); }
+
+      .hero-visual { position: relative; min-height: 430px; }
+
+      .map-preview {
+        position: absolute;
+        inset: 18px 0 0 30px;
+        overflow: hidden;
+        border: 1px solid rgb(255 255 255 / 16%);
+        border-radius: 22px;
+        background:
+          linear-gradient(30deg, transparent 48%, rgb(96 165 250 / 16%) 49%, rgb(96 165 250 / 16%) 51%, transparent 52%) 0 0 / 58px 58px,
+          linear-gradient(150deg, transparent 48%, rgb(96 165 250 / 12%) 49%, rgb(96 165 250 / 12%) 51%, transparent 52%) 0 0 / 58px 58px,
+          #17314f;
+        box-shadow: 0 30px 70px rgb(2 8 23 / 35%);
+        transform: rotate(2deg);
       }
 
-      @media (max-width: 820px) {
-        header { min-height: 56px; padding: 0 16px; }
-        h1 { font-size: 1.15rem; }
-
-        .app-shell {
-          grid-template-columns: 1fr;
-          height: auto;
-          min-height: 0;
-          padding: 12px;
-        }
-
-        .filters-panel { overflow: visible; }
-        .map-card { height: 68vh; min-height: 500px; }
+      .map-preview::before {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 70% 28%, rgb(59 130 246 / 38%), transparent 35%);
+        content: "";
       }
+
+      .map-route {
+        position: absolute;
+        top: 30%;
+        left: -8%;
+        width: 118%;
+        height: 150px;
+        border-top: 3px solid rgb(147 197 253 / 60%);
+        border-radius: 50%;
+        transform: rotate(-15deg);
+      }
+
+      .map-dot {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        border: 3px solid #ffffff;
+        border-radius: 50%;
+        background: #f59e0b;
+        box-shadow: 0 0 0 8px rgb(245 158 11 / 14%);
+      }
+
+      .dot-one { top: 26%; left: 30%; }
+      .dot-two { top: 52%; left: 62%; background: #22c55e; box-shadow: 0 0 0 8px rgb(34 197 94 / 14%); }
+      .dot-three { top: 70%; left: 43%; background: #ef4444; box-shadow: 0 0 0 8px rgb(239 68 68 / 14%); }
+
+      .floating-card {
+        position: absolute;
+        right: -18px;
+        bottom: 20px;
+        width: 220px;
+        border: 1px solid rgb(255 255 255 / 18%);
+        border-radius: 14px;
+        padding: 17px;
+        background: rgb(15 30 48 / 88%);
+        box-shadow: 0 20px 50px rgb(2 8 23 / 35%);
+        backdrop-filter: blur(16px);
+      }
+
+      .floating-card strong { display: block; margin-bottom: 5px; font-size: 1.35rem; }
+      .floating-card span { color: #94a3b8; font-size: 0.76rem; }
+
+      .section {
+        width: min(1180px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 100px 0;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        margin-top: -42px;
+        padding: 0;
+        background: #ffffff;
+        box-shadow: 0 18px 45px rgb(15 23 42 / 9%);
+      }
+
+      .stat { padding: 25px 30px; }
+      .stat + .stat { border-left: 1px solid var(--line); }
+      .stat strong { display: block; color: var(--navy); font-size: 1.8rem; letter-spacing: -0.035em; }
+      .stat span { color: var(--muted); font-size: 0.78rem; }
+
+      .section-heading { max-width: 650px; margin-bottom: 42px; }
+      .section-heading .kicker { color: var(--blue); }
+      .section-heading .kicker::before { background: var(--blue); }
+      h2 { margin: 0 0 14px; color: var(--navy); font-size: clamp(2rem, 4vw, 3.2rem); letter-spacing: -0.045em; line-height: 1.08; }
+      .section-heading > p:not(.kicker) { margin: 0; color: var(--muted); line-height: 1.7; }
+
+      .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+      .feature-card { min-height: 230px; border: 1px solid var(--line); border-radius: 16px; padding: 26px; background: #ffffff; transition: transform 200ms ease, box-shadow 200ms ease; }
+      .feature-card:hover { transform: translateY(-5px); box-shadow: 0 18px 42px rgb(15 23 42 / 10%); }
+      .feature-number { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; margin-bottom: 36px; color: var(--blue); background: #eff6ff; font-size: 0.78rem; font-weight: 800; }
+      .feature-card h3 { margin: 0 0 9px; color: var(--navy); font-size: 1.05rem; }
+      .feature-card p { margin: 0; color: var(--muted); font-size: 0.84rem; line-height: 1.65; }
+
+      .story-band { color: #ffffff; background: var(--navy); }
+      .story-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; align-items: center; gap: 80px; }
+      .icon-placeholder { width: min(330px, 100%); aspect-ratio: 1; overflow: hidden; border-radius: 34px; background: #ffffff; }
+      .story-copy h2 { color: #ffffff; }
+      .story-copy p { color: #cbd5e1; line-height: 1.75; }
+      .story-copy .kicker { color: #93c5fd; }
+      .team-members { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin: 26px 0 0; padding: 0; list-style: none; }
+      .team-members li { border-top: 1px solid rgb(255 255 255 / 16%); padding-top: 12px; color: #ffffff; font-size: 0.88rem; font-weight: 700; }
+      .team-members small { display: block; margin-top: 4px; color: #94a3b8; font-size: 0.74rem; font-weight: 500; line-height: 1.45; }
+
+      .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+      .step { position: relative; padding: 26px 0; border-top: 2px solid var(--line); }
+      .step::before { position: absolute; top: -6px; left: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); content: ""; }
+      .step strong { display: block; margin-bottom: 8px; color: var(--navy); }
+      .step p { margin: 0; color: var(--muted); font-size: 0.83rem; line-height: 1.65; }
+      .model-note { margin-top: 34px; border: 1px dashed #93c5fd; border-radius: 16px; padding: 24px 26px; background: #eff6ff; }
+      .model-note strong { display: block; margin-bottom: 7px; color: var(--navy); }
+      .model-note p { margin: 0; color: var(--muted); font-size: 0.86rem; line-height: 1.65; }
+
+      .cta { padding-top: 30px; }
+      .cta-card { display: flex; align-items: center; justify-content: space-between; gap: 30px; border-radius: 22px; padding: 48px; color: #ffffff; background: linear-gradient(120deg, #1d4ed8, #2563eb 55%, #3b82f6); box-shadow: 0 25px 60px rgb(37 99 235 / 24%); }
+      .cta-card h2 { max-width: 660px; margin: 0; color: #ffffff; }
+      .cta-card .button { flex: 0 0 auto; color: var(--blue-dark); background: #ffffff; }
+
+      footer { margin-top: 90px; border-top: 1px solid var(--line); padding: 28px 20px; color: var(--muted); background: #ffffff; text-align: center; font-size: 0.76rem; }
+
+      .hero-copy { animation: hero-in 700ms ease-out both; }
+      .hero-visual { animation: hero-in 800ms 120ms ease-out both; }
+      @keyframes hero-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 860px) {
+        .nav-links a:not(.nav-button) { display: none; }
+        .hero-grid, .story-grid { grid-template-columns: 1fr; }
+        .hero-grid { gap: 20px; min-height: auto; padding: 80px 0 100px; }
+        .hero-visual { min-height: 380px; }
+        .feature-grid, .steps, .team-members { grid-template-columns: 1fr; }
+        .stats { grid-template-columns: 1fr; }
+        .stat + .stat { border-top: 1px solid var(--line); border-left: 0; }
+        .story-grid { gap: 48px; }
+        .icon-placeholder { margin: 0 auto; }
+        .cta-card { align-items: flex-start; flex-direction: column; }
+      }
+
+      @media (max-width: 520px) {
+        .nav-wrap, .hero-grid, .section { width: min(100% - 28px, 1180px); }
+        h1 { font-size: 2.8rem; }
+        .hero-visual { min-height: 315px; }
+        .map-preview { inset: 10px 8px 0; }
+        .floating-card { right: 0; width: 190px; }
+        .section { padding: 74px 0; }
+        .cta-card { padding: 32px 25px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
     </style>
   </head>
   <body>
-    <header><h1>Ben&sup2; Bridges</h1></header>
-
-    <main class="app-shell">
-      <aside class="filters-panel" aria-label="Bridge search and filters">
-        <p class="eyebrow">Pennsylvania NBI 2025</p>
-        <h2>Explore bridges</h2>
-        <p class="panel-intro">Search by road, crossed feature, location, or bridge ID, then narrow the statewide dataset.</p>
-
-        <div class="field">
-          <label for="bridge-search">Search</label>
-          <input id="bridge-search" type="search" placeholder="Road, creek, location, or ID" autocomplete="off">
-          <p class="field-hint">Press Enter to frame matching bridges.</p>
+    <header class="site-header">
+      <nav class="nav-wrap" aria-label="Primary navigation">
+        <a class="brand" href="./index.html">
+          <span class="brand-icon" aria-hidden="true"><img src="./logo.png" alt=""></span>
+          <span>Ben&sup2; Bridges</span>
+        </a>
+        <div class="nav-links">
+          <a href="#purpose">Purpose</a>
+          <a href="#team">Team</a>
+          <a href="#approach">Technical approach</a>
+          <a class="nav-button" href="./map.html">Open map</a>
         </div>
+      </nav>
+    </header>
 
-        <div class="field">
-          <label for="condition-filter">Condition</label>
-          <select id="condition-filter">
-            <option value="all">All conditions</option>
-            <option value="G">Good</option>
-            <option value="F">Fair</option>
-            <option value="P">Poor</option>
-          </select>
+    <main>
+      <section class="hero">
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <p class="kicker">Maintenance decisions under limited budgets</p>
+            <h1>Prioritize the bridges that need attention next.</h1>
+            <p>Ben² Bridges is a decision-support tool designed to help governments identify which Pennsylvania highway bridges should receive maintenance when funding is limited.</p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="./map.html">Explore the bridge map</a>
+              <a class="button button-secondary" href="#purpose">Learn about the project</a>
+            </div>
+          </div>
+
+          <div class="hero-visual" aria-hidden="true">
+            <div class="map-preview">
+              <span class="map-route"></span>
+              <span class="map-dot dot-one"></span>
+              <span class="map-dot dot-two"></span>
+              <span class="map-dot dot-three"></span>
+            </div>
+            <div class="floating-card">
+              <strong>23,314</strong>
+              <span>bridge records ready to explore</span>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <div class="field">
-          <label for="age-filter">Bridge age</label>
-          <select id="age-filter">
-            <option value="all">All ages</option>
-            <option value="0-25">0–25 years</option>
-            <option value="26-50">26–50 years</option>
-            <option value="51-75">51–75 years</option>
-            <option value="76+">76+ years</option>
-          </select>
+      <section class="section" aria-label="Project statistics">
+        <div class="stats">
+          <div class="stat"><strong>23,314</strong><span>Pennsylvania bridge records</span></div>
+          <div class="stat"><strong>4</strong><span>student team members</span></div>
+          <div class="stat"><strong>67</strong><span>counties represented</span></div>
         </div>
+      </section>
 
-        <div class="field">
-          <label for="material-filter">Material / design</label>
-          <select id="material-filter">
-            <option value="all">All materials</option>
-            <option value="1">Concrete</option>
-            <option value="2">Concrete, continuous</option>
-            <option value="3">Steel</option>
-            <option value="4">Steel, continuous</option>
-            <option value="5">Prestressed concrete</option>
-            <option value="6">Prestressed concrete, continuous</option>
-            <option value="7">Wood or timber</option>
-            <option value="8">Masonry</option>
-            <option value="9">Aluminum or iron</option>
-            <option value="0">Other</option>
-          </select>
+      <section id="purpose" class="section">
+        <div class="section-heading">
+          <p class="kicker">Project purpose</p>
+          <h2>Move beyond age and current condition alone.</h2>
+          <p>The project aims to combine predicted deterioration with current condition, traffic volume, detour impact, and estimated maintenance cost, then recommend a set of bridges that fits a selected maintenance budget.</p>
         </div>
+        <div class="feature-grid">
+          <article class="feature-card"><span class="feature-number">01</span><h3>Anticipate deterioration</h3><p>Use historical National Bridge Inventory inspection records to estimate which bridges are most likely to decline.</p></article>
+          <article class="feature-card"><span class="feature-number">02</span><h3>Prioritize within a budget</h3><p>Balance risk, consequences, and estimated maintenance cost to identify a practical set of bridges for intervention.</p></article>
+          <article class="feature-card"><span class="feature-number">03</span><h3>Compare strategies</h3><p>Compare predictive prioritization with simpler policies based on age, traffic, and present bridge condition.</p></article>
+        </div>
+      </section>
 
-        <button id="reset-filters" type="button">Reset filters</button>
-        <div id="result-count" class="results" role="status">Loading bridge records…</div>
+      <section id="team" class="story-band">
+        <div class="section story-grid">
+          <div class="icon-placeholder">
+            <img src="./logo.png" alt="Ben² Bridges project logo">
+          </div>
+          <div class="story-copy">
+            <p class="kicker">Our team</p>
+            <h2>Four collaborators, one shared prototype.</h2>
+            <p>Our responsibilities overlap so the project can keep moving if one person becomes blocked. Each team member leads a primary area while supporting testing, review, documentation, and the final demonstration.</p>
+            <ul class="team-members">
+              <li>Aarav Sekhri<small>Data collection, cleaning, machine learning, and model evaluation</small></li>
+              <li>Aviral Jain<small>Data collection, cleaning, machine learning, and model evaluation</small></li>
+              <li>Benjamin Yang<small>Risk scoring, budget allocation, dashboard, and visualizations</small></li>
+              <li>Benjamin Zhang<small>Risk scoring, budget allocation, dashboard, and visualizations</small></li>
+            </ul>
+          </div>
+        </div>
+      </section>
 
-        <section class="legend" aria-label="Bridge condition legend">
-          <p class="legend-title">Bridge condition</p>
-          <div class="legend-row"><span class="legend-dot good"></span><span>Good</span></div>
-          <div class="legend-row"><span class="legend-dot fair"></span><span>Fair</span></div>
-          <div class="legend-row"><span class="legend-dot poor"></span><span>Poor</span></div>
-          <p class="size-note">Individual dot size is scaled by bridge deck area. Blue circles group nearby bridges at broader zoom levels.</p>
-        </section>
-      </aside>
+      <section id="approach" class="section">
+        <div class="section-heading">
+          <p class="kicker">Technical approach</p>
+          <h2>From historical inspections to maintenance priorities.</h2>
+          <p>This section records the planned approach from the proposal. Final model choices, features, evaluation results, and scoring formulas can be added here once that work is complete.</p>
+        </div>
+        <div class="steps">
+          <article class="step"><strong>1. Prepare historical data</strong><p>Clean Pennsylvania National Bridge Inventory records, identify important fields, and match bridges across years using consistent identifiers.</p></article>
+          <article class="step"><strong>2. Model deterioration</strong><p>Create a deterioration target, engineer features, and compare logistic regression with tree-based models using a time-based split.</p></article>
+          <article class="step"><strong>3. Allocate the budget</strong><p>Combine predicted deterioration, current condition, traffic, detour impact, and estimated cost into a priority score and budget-constrained selection.</p></article>
+        </div>
+        <div class="model-note">
+          <strong>Model and methodology details - to be completed</strong>
+          <p>Reserve this area for the selected model, final feature set, deterioration definition, calibration, precision and recall, top-risk bridge evaluation, scoring formula, cost assumptions, and comparison results at several budget levels.</p>
+        </div>
+      </section>
 
-      <section class="map-card" aria-label="Bridge map window">
-        <div id="map" aria-label="Map of Pennsylvania bridges"></div>
-        <div id="loading" role="status">Loading bridge locations&hellip;</div>
+      <section class="section cta">
+        <div class="cta-card">
+          <h2>Explore Pennsylvania's bridges in the current prototype.</h2>
+          <a class="button" href="./map.html">Launch the map</a>
+        </div>
       </section>
     </main>
 
-    <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-    <script>
-      const DATASET_YEAR = 2025;
-      const numberFormatter = new Intl.NumberFormat("en-US");
-      const searchInput = document.getElementById("bridge-search");
-      const conditionFilter = document.getElementById("condition-filter");
-      const ageFilter = document.getElementById("age-filter");
-      const materialFilter = document.getElementById("material-filter");
-      const resetButton = document.getElementById("reset-filters");
-      const resultCount = document.getElementById("result-count");
-      const loadingIndicator = document.getElementById("loading");
-
-      let allBridgeData = null;
-      let bridgeDataSet = false;
-      let searchTimer = null;
-
-      const map = new maplibregl.Map({
-        container: "map",
-        style: "https://tiles.openfreemap.org/styles/liberty",
-        center: [-77.7, 40.9],
-        zoom: 6.6,
-        minZoom: 4.5,
-        maxZoom: 18,
-        pitchWithRotate: false,
-        dragRotate: false,
-        attributionControl: false
-      });
-
-      map.addControl(new maplibregl.NavigationControl({
-        showCompass: false,
-        visualizePitch: false
-      }), "top-right");
-
-      map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
-
-      function matchesAge(yearBuilt, selection) {
-        if (selection === "all") return true;
-        const year = Number(yearBuilt);
-        if (!Number.isFinite(year) || year <= 0) return false;
-        const age = DATASET_YEAR - year;
-        if (selection === "0-25") return age >= 0 && age <= 25;
-        if (selection === "26-50") return age >= 26 && age <= 50;
-        if (selection === "51-75") return age >= 51 && age <= 75;
-        return age >= 76;
-      }
-
-      function fitFeatures(features) {
-        if (!features.length) return;
-        const bounds = new maplibregl.LngLatBounds();
-        features.forEach((feature) => bounds.extend(feature.geometry.coordinates));
-        map.fitBounds(bounds, {
-          padding: 70,
-          maxZoom: 12,
-          duration: 700
-        });
-      }
-
-      function applyFilters(frameMatches = false) {
-        if (!allBridgeData || !map.getSource("bridges")) return;
-
-        const query = searchInput.value.trim().toLowerCase();
-        const condition = conditionFilter.value;
-        const age = ageFilter.value;
-        const material = materialFilter.value;
-
-        const filtered = allBridgeData.features.filter((feature) => {
-          const properties = feature.properties || {};
-          const searchable = [
-            feature.id,
-            properties.facility,
-            properties.featureCrossed,
-            properties.location
-          ].filter(Boolean).join(" ").toLowerCase();
-
-          return (!query || searchable.includes(query)) &&
-            (condition === "all" || properties.condition === condition) &&
-            matchesAge(properties.yearBuilt, age) &&
-            (material === "all" || String(properties.materialKind) === material);
-        });
-
-        bridgeDataSet = true;
-        map.getSource("bridges").setData({
-          type: "FeatureCollection",
-          features: filtered
-        });
-
-        resultCount.textContent = "Showing " + numberFormatter.format(filtered.length) +
-          " of " + numberFormatter.format(allBridgeData.features.length) + " bridges";
-
-        if (frameMatches && query && filtered.length) fitFeatures(filtered);
-      }
-
-      function scheduleSearch() {
-        window.clearTimeout(searchTimer);
-        searchTimer = window.setTimeout(() => applyFilters(false), 160);
-      }
-
-      function resetFilters() {
-        searchInput.value = "";
-        conditionFilter.value = "all";
-        ageFilter.value = "all";
-        materialFilter.value = "all";
-        applyFilters(false);
-        map.fitBounds([[-80.519428, 39.720794], [-74.693478, 42.260536]], {
-          padding: 35,
-          duration: 650
-        });
-      }
-
-      searchInput.addEventListener("input", scheduleSearch);
-      searchInput.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          window.clearTimeout(searchTimer);
-          applyFilters(true);
-        }
-      });
-      conditionFilter.addEventListener("change", () => applyFilters(false));
-      ageFilter.addEventListener("change", () => applyFilters(false));
-      materialFilter.addEventListener("change", () => applyFilters(false));
-      resetButton.addEventListener("click", resetFilters);
-
-      const addBridgeLayers = () => {
-        if (window.location.protocol === "file:") {
-          loadingIndicator.textContent = "Open start-map.bat to load bridge data.";
-          resultCount.textContent = "Start the local server to search bridge records.";
-          return;
-        }
-
-        map.addSource("bridges", {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-          cluster: true,
-          clusterMaxZoom: 10,
-          clusterRadius: 48,
-          maxzoom: 12
-        });
-
-        const firstLabelLayerId = map
-          .getStyle()
-          .layers.find((layer) => layer.type === "symbol")?.id;
-
-        map.addLayer({
-          id: "bridge-clusters",
-          type: "circle",
-          source: "bridges",
-          minzoom: 6,
-          filter: ["has", "point_count"],
-          paint: {
-            "circle-color": ["step", ["get", "point_count"], "#2563eb", 100, "#1d4ed8", 500, "#1e3a8a"],
-            "circle-radius": ["step", ["get", "point_count"], 10, 100, 13, 500, 17],
-            "circle-stroke-width": 1.5,
-            "circle-stroke-color": "rgba(255, 255, 255, 0.92)",
-            "circle-opacity": 0.68
-          }
-        }, firstLabelLayerId);
-
-        map.addLayer({
-          id: "bridge-cluster-counts",
-          type: "symbol",
-          source: "bridges",
-          minzoom: 6,
-          filter: ["has", "point_count"],
-          layout: {
-            "text-field": ["get", "point_count_abbreviated"],
-            "text-size": 10,
-            "text-font": ["Noto Sans Regular"]
-          },
-          paint: { "text-color": "#ffffff" }
-        }, firstLabelLayerId);
-
-        map.addLayer({
-          id: "bridge-points",
-          type: "circle",
-          source: "bridges",
-          minzoom: 8.5,
-          filter: ["!", ["has", "point_count"]],
-          paint: {
-            "circle-color": ["match", ["get", "condition"], "G", "#16a34a", "F", "#f59e0b", "P", "#dc2626", "#64748b"],
-            "circle-radius": [
-              "interpolate", ["linear"], ["coalesce", ["get", "deckArea"], 0],
-              0, 2.2,
-              60, 2.7,
-              185, 3.5,
-              500, 4.6,
-              1150, 6,
-              6150, 8.5,
-              25000, 11
-            ],
-            "circle-stroke-width": 1.2,
-            "circle-stroke-color": "#ffffff",
-            "circle-opacity": 0.92
-          }
-        }, firstLabelLayerId);
-
-        const hoverPopup = new maplibregl.Popup({
-          closeButton: false,
-          closeOnClick: false,
-          offset: 10,
-          className: "bridge-hover-popup"
-        });
-
-        map.on("mousemove", "bridge-points", (event) => {
-          const feature = event.features && event.features[0];
-          if (!feature) return;
-
-          map.getCanvas().style.cursor = "pointer";
-          const properties = feature.properties || {};
-          const title = properties.facility && properties.featureCrossed
-            ? properties.facility + " over " + properties.featureCrossed
-            : properties.facility || properties.featureCrossed || "Bridge " + feature.id;
-
-          const detailParts = [];
-          if (properties.location) detailParts.push(properties.location);
-          if (properties.yearBuilt) detailParts.push("Built " + properties.yearBuilt);
-
-          const content = document.createElement("div");
-          const name = document.createElement("div");
-          name.className = "hover-name";
-          name.textContent = title;
-          content.appendChild(name);
-
-          if (detailParts.length) {
-            const detail = document.createElement("div");
-            detail.className = "hover-detail";
-            detail.textContent = detailParts.join(" · ");
-            content.appendChild(detail);
-          }
-
-          hoverPopup
-            .setLngLat(feature.geometry.coordinates)
-            .setDOMContent(content)
-            .addTo(map);
-        });
-
-        map.on("mouseleave", "bridge-points", () => {
-          map.getCanvas().style.cursor = "";
-          hoverPopup.remove();
-        });
-
-        fetch("./Data/pa_bridges_2025_map.geojson")
-          .then((response) => {
-            if (!response.ok) throw new Error("Bridge data request failed: " + response.status);
-            return response.json();
-          })
-          .then((data) => {
-            allBridgeData = data;
-            applyFilters(false);
-          })
-          .catch((error) => {
-            loadingIndicator.textContent = "Bridge data could not be loaded.";
-            resultCount.textContent = "Bridge records are unavailable.";
-            console.error(error);
-          });
-
-        map.on("sourcedata", (event) => {
-          if (bridgeDataSet && event.sourceId === "bridges" && event.isSourceLoaded) {
-            loadingIndicator.hidden = true;
-          }
-        });
-      };
-
-      if (map.isStyleLoaded()) addBridgeLayers();
-      else map.once("style.load", addBridgeLayers);
-    </script>
-  </body>
+    <footer>Ben&sup2; Bridges | Aarav Sekhri, Aviral Jain, Benjamin Yang, and Benjamin Zhang</footer>
+</body>
 </html>
