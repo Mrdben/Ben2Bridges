@@ -5,6 +5,8 @@ Ben2Bridges project.
 
 Current files:
 
+- `AI_WEBSITE_INTEGRATION_HANDOFF.md`: one-file implementation brief that a
+  website teammate can give directly to an AI coding agent.
 - `DATA_CONTRACT.md`: interface between the NBI input, prediction models, and
   decision algorithm.
 - `OFFICIAL_DATA_SOURCES.md`: official FHWA, Census, and PennDOT provenance and
