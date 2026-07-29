@@ -12,7 +12,7 @@ def scoring_frame() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "bridge_id": ["A", "B", "C"],
-            "deterioration_probability": [0.9, 0.4, 0.6],
+            "deterioration_risk_score": [0.9, 0.4, 0.6],
             "lowest_rating": [6, 4, 7],
             "adt": [100, 10000, 1000],
             "detour_km": [5.0, 10.0, 20.0],
@@ -29,7 +29,17 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual(set(scored["bridge_id"]), {"A", "B", "C"})
         self.assertTrue(scored["priority_score"].between(0, 100).all())
         self.assertAlmostEqual(sum(report.weights.values()), 1.0)
-        self.assertTrue(report.provisional_weights)
+        self.assertEqual(
+            report.weights,
+            {
+                "deterioration": 0.45,
+                "condition": 0.25,
+                "traffic": 0.25,
+                "detour": 0.05,
+            },
+        )
+        self.assertEqual(report.weight_status, "official_informed_calibrated")
+        self.assertFalse(report.provisional_weights)
         for indicator in ("deterioration", "condition", "traffic", "detour"):
             self.assertIn(f"{indicator}_score", scored.columns)
             self.assertIn(f"{indicator}_contribution", scored.columns)
@@ -38,7 +48,7 @@ class ScoringTests(unittest.TestCase):
         frame = pd.DataFrame(
             {
                 "bridge_id": ["HIGH_RISK", "HIGH_TRAFFIC"],
-                "deterioration_probability": [0.95, 0.20],
+                "deterioration_risk_score": [0.95, 0.20],
                 "lowest_rating": [4, 7],
                 "adt": [100, 100000],
                 "detour_km": [5, 5],
@@ -46,17 +56,19 @@ class ScoringTests(unittest.TestCase):
             }
         )
 
-        safety, _ = score_bridges(frame, strategy="safety")
+        safety, safety_report = score_bridges(frame, strategy="safety")
         traffic, _ = score_bridges(frame, strategy="traffic")
 
         self.assertEqual(safety.loc[0, "bridge_id"], "HIGH_RISK")
         self.assertEqual(traffic.loc[0, "bridge_id"], "HIGH_TRAFFIC")
+        self.assertEqual(safety_report.weight_status, "provisional_policy_profile")
+        self.assertTrue(safety_report.provisional_weights)
 
     def test_cost_does_not_change_priority_score(self) -> None:
         frame = pd.DataFrame(
             {
                 "bridge_id": ["CHEAP", "EXPENSIVE"],
-                "deterioration_probability": [0.7, 0.7],
+                "deterioration_risk_score": [0.7, 0.7],
                 "lowest_rating": [5, 5],
                 "adt": [1000, 1000],
                 "detour_km": [10, 10],
@@ -92,18 +104,19 @@ class ScoringTests(unittest.TestCase):
 
         self.assertEqual(scored.loc[0, "bridge_id"], "A")
         self.assertEqual(report.strategy, "custom")
+        self.assertEqual(report.weight_status, "custom_user_weights")
         self.assertFalse(report.provisional_weights)
 
     def test_weights_must_sum_to_one(self) -> None:
         with self.assertRaisesRegex(DataValidationError, "sum to 1.0"):
             ScoreWeights(0.4, 0.2, 0.2, 0.1)
 
-    def test_invalid_probability_is_rejected(self) -> None:
+    def test_invalid_risk_score_is_rejected(self) -> None:
         frame = scoring_frame()
-        frame.loc[0, "deterioration_probability"] = 1.1
+        frame.loc[0, "deterioration_risk_score"] = 1.1
 
         with self.assertRaisesRegex(
-            DataValidationError, "deterioration_probability must be between"
+            DataValidationError, "deterioration_risk_score must be between"
         ):
             score_bridges(frame)
 

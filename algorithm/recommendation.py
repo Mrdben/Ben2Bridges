@@ -58,8 +58,8 @@ def _development_model_versions(model_versions: tuple[str, ...]) -> bool:
 
 def _reason_text(row: pd.Series, indicator: str) -> str:
     if indicator == "deterioration":
-        probability = 100 * float(row["deterioration_probability"])
-        return f"Predicted deterioration probability is {probability:.1f}%."
+        risk_score = float(row["deterioration_risk_score"])
+        return f"Predicted deterioration risk score is {risk_score:.3f} on a 0-1 scale."
     if indicator == "condition":
         return (
             "Lowest applicable FHWA condition rating is "
@@ -97,10 +97,16 @@ def _bridge_record(
     regional_rank: int,
 ) -> dict[str, object]:
     selected = bool(row["selected_for_repair"])
-    if selected:
+    protected = bool(row["priority_protected"])
+    if protected:
         explanation = (
-            "Included in the highest-scoring portfolio under the stated budget, "
-            "strategy, region, and model assumptions."
+            "Included in the strict top-ranked priority-protection prefix before "
+            "the remaining budget was optimized."
+        )
+    elif selected:
+        explanation = (
+            "Included by the residual highest-scoring portfolio optimization "
+            "under the stated budget, strategy, region, and model assumptions."
         )
     else:
         explanation = (
@@ -124,12 +130,21 @@ def _bridge_record(
         "funded_rank": _json_value(row["funded_rank"]),
         "priority_score": float(row["priority_score"]),
         "selected_for_repair": selected,
+        "priority_protected": protected,
         "funding_status": str(row["funding_status"]),
-        "deterioration_probability": float(row["deterioration_probability"]),
-        "prediction_horizon_years": int(row["prediction_horizon_years"]),
+        "deterioration_risk_score": float(row["deterioration_risk_score"]),
+        "risk_score_semantics": str(row["risk_score_semantics"]),
+        "prediction_horizon": str(row["prediction_horizon"]),
         "model_version": str(row["model_version"]),
         "predicted_cost": float(row["predicted_cost"]),
         "cost_unit": str(row["cost_unit"]),
+        "cost_reference_year": int(row["cost_reference_year"]),
+        "cost_method": str(row["cost_method"]),
+        "cost_source_component": str(row["cost_source_component"]),
+        "cost_lower_80": float(row["cost_lower_80"]),
+        "cost_upper_80": float(row["cost_upper_80"]),
+        "cost_high_probability": float(row["cost_high_probability"]),
+        "cost_is_derived": bool(row["cost_is_derived"]),
         "bridge_condition": str(row["bridge_condition"]),
         "lowest_rating": int(row["lowest_rating"]),
         "adt": int(row["adt"]),
@@ -159,6 +174,7 @@ def generate_recommendation(
     county_fips: str | int | None = None,
     penndot_district: int | None = None,
     high_risk_threshold: float = 0.70,
+    priority_protection_fraction: float = 0.25,
     unfunded_limit: int = 20,
 ) -> dict[str, object]:
     """Return a complete recommendation response suitable for a website API."""
@@ -181,6 +197,7 @@ def generate_recommendation(
         county_fips=county_fips,
         penndot_district=penndot_district,
         high_risk_threshold=high_risk_threshold,
+        priority_protection_fraction=priority_protection_fraction,
     )
 
     regional_order = allocation.sort_values(
@@ -214,12 +231,22 @@ def generate_recommendation(
     ]
 
     development_data = _development_model_versions(validation_report.model_versions)
+    provisional_methodology = (
+        validation_report.derived_costs
+        or "unconfirmed" in validation_report.risk_score_semantics.lower()
+    )
     warnings = list(validation_report.warnings)
     if development_data:
         warnings.insert(
             0,
             "Development model predictions are in use; recommendations are not "
             "suitable for real funding decisions.",
+        )
+    if provisional_methodology:
+        warnings.insert(
+            0,
+            "Recommendation uses an uncalibrated model risk score and/or a "
+            "derived bridge-level cost; treat it as a provisional planning result.",
         )
 
     request_region: dict[str, object] = {"type": "statewide", "value": None}
@@ -238,11 +265,15 @@ def generate_recommendation(
         "status": "ok",
         "schema_version": SCHEMA_VERSION,
         "development_data": development_data,
+        "provisional_methodology": provisional_methodology,
         "request": {
             "budget": float(budget),
             "strategy": scoring_report.strategy,
             "region": request_region,
             "high_risk_threshold": float(high_risk_threshold),
+            "priority_protection_fraction": float(
+                priority_protection_fraction
+            ),
         },
         "warnings": warnings,
         "data_validation": validation_report.to_dict(),
@@ -277,6 +308,9 @@ def _parse_args() -> argparse.Namespace:
     region.add_argument("--county-fips")
     region.add_argument("--district", type=int)
     parser.add_argument("--high-risk-threshold", type=float, default=0.70)
+    parser.add_argument(
+        "--priority-protection-fraction", type=float, default=0.25
+    )
     parser.add_argument("--unfunded-limit", type=int, default=20)
     parser.add_argument("--output", required=True, help="Output JSON path")
     return parser.parse_args()
@@ -294,6 +328,7 @@ def main() -> int:
             county_fips=args.county_fips,
             penndot_district=args.district,
             high_risk_threshold=args.high_risk_threshold,
+            priority_protection_fraction=args.priority_protection_fraction,
             unfunded_limit=args.unfunded_limit,
         )
     except (DataValidationError, OSError, pd.errors.ParserError) as exc:

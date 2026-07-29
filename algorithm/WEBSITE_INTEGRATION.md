@@ -14,7 +14,9 @@ The interactive form needs only:
 
 The NBI, county, and model-prediction file paths are server configuration, not
 form inputs. The optional high-risk threshold changes summary reporting only;
-it does not change which bridges the optimizer selects.
+it does not change which bridges the optimizer selects. The algorithm applies
+a default 25% priority-protection cap internally, so it is not another required
+website input.
 
 ## Python entry point
 
@@ -47,7 +49,7 @@ The returned dictionary is strict JSON: missing values are `null`, never
 
 Every bridge record includes its map coordinates, descriptions, statewide and
 regional ranks, predicted cost, all decision indicators, component scores,
-top reasons, and a selection explanation.
+top reasons, whether it was priority-protected, and a selection explanation.
 
 ## Later web API layer
 
@@ -66,3 +68,88 @@ The API should validate requests and return a clear 4xx error for invalid
 budgets or filters. Production deployment details depend on where the group's
 website will be hosted, so they are intentionally kept outside this framework-
 independent algorithm module.
+
+## Minimal FastAPI example
+
+The website teammate can put the following in a server file such as `api.py`.
+FastAPI is an optional web-layer dependency and is intentionally not required
+by the algorithm package itself.
+
+```python
+import os
+from typing import Literal
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
+from algorithm.data_pipeline import DataValidationError
+from algorithm.recommendation import generate_recommendation
+
+app = FastAPI()
+
+NBI_PATH = os.getenv("BEN2_NBI", "website/Data/PA 2025.csv")
+PREDICTIONS_PATH = os.getenv(
+    "BEN2_PREDICTIONS",
+    "algorithm/generated/combined/combined_model_predictions.csv",
+)
+COUNTIES_PATH = os.getenv("BEN2_COUNTIES", "algorithm/data/pa_counties.csv")
+
+
+class RecommendRequest(BaseModel):
+    budget: float = Field(gt=0)
+    strategy: Literal["balanced", "safety", "traffic"] = "balanced"
+    county_fips: str | None = None
+    district: int | None = None
+
+
+@app.post("/api/recommend")
+def recommend(request: RecommendRequest):
+    try:
+        return generate_recommendation(
+            NBI_PATH,
+            PREDICTIONS_PATH,
+            COUNTIES_PATH,
+            budget=request.budget,
+            strategy=request.strategy,
+            county_fips=request.county_fips,
+            penndot_district=request.district,
+        )
+    except (DataValidationError, OSError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+```
+
+Install and run the optional web layer from the repository root:
+
+```bash
+python -m pip install -r algorithm/requirements.txt fastapi uvicorn
+uvicorn api:app --reload
+```
+
+The browser can then call it with:
+
+```javascript
+const response = await fetch("/api/recommend", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    budget: 25000000,
+    strategy: "balanced",
+    county_fips: null,
+    district: null,
+  }),
+});
+
+if (!response.ok) throw new Error(await response.text());
+const plan = await response.json();
+
+renderSummary(plan.summary);
+renderBridgeTable(plan.selected_bridges);
+highlightMapBridges(plan.selected_bridge_ids);
+```
+
+`algorithm/generated/` is intentionally ignored by Git. A teammate cloning the
+repository must either receive the final combined model CSV separately and set
+`BEN2_PREDICTIONS`, or generate it locally using the deterioration and cost
+adapters documented in `README.md`. For interface development only, the mock
+prediction CSV can be used, but it covers 12 bridges and the response clearly
+labels it as development data.

@@ -1,4 +1,4 @@
-"""Select an exact budget-constrained portfolio of scored bridges."""
+"""Select a priority-protected portfolio with exact residual optimization."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ ALLOCATION_COLUMNS = {
     "bridge_id",
     "priority_rank",
     "priority_score",
-    "deterioration_probability",
+    "deterioration_risk_score",
     "predicted_cost",
     "cost_unit",
     "bridge_condition",
@@ -46,6 +46,10 @@ class AllocationSummary:
     budget_utilization_percent: float
     total_selected_priority_score: float
     mean_selected_priority_score: float
+    priority_protection_fraction: float
+    priority_protected_bridge_count: int
+    priority_protected_budget_used: float
+    priority_protected_budget_percent: float
     high_risk_threshold: float
     selected_high_risk_count: int
     unfunded_high_risk_count: int
@@ -152,22 +156,86 @@ def _solve_selection(
     scaled_costs = costs / cost_scale
     scaled_budget = budget / cost_scale
 
-    result = milp(
-        c=-priority_scores,
-        integrality=np.ones(bridge_count, dtype=int),
-        bounds=Bounds(np.zeros(bridge_count), np.ones(bridge_count)),
-        constraints=LinearConstraint(
-            scaled_costs.reshape(1, -1),
-            -np.inf,
-            scaled_budget,
-        ),
-        options={"mip_rel_gap": 0.0},
-    )
-    if not result.success or result.x is None:
-        raise DataValidationError(
-            f"Budget optimizer did not find an optimal portfolio: {result.message}"
+    def solve(scaled_limit: float) -> np.ndarray:
+        result = milp(
+            c=-priority_scores,
+            integrality=np.ones(bridge_count, dtype=int),
+            bounds=Bounds(np.zeros(bridge_count), np.ones(bridge_count)),
+            constraints=LinearConstraint(
+                scaled_costs.reshape(1, -1),
+                -np.inf,
+                scaled_limit,
+            ),
+            options={"mip_rel_gap": 0.0},
         )
-    return result.x > 0.5, "optimal:milp"
+        if not result.success or result.x is None:
+            raise DataValidationError(
+                "Budget optimizer did not find an optimal portfolio: "
+                f"{result.message}"
+            )
+        return result.x > 0.5
+
+    selection = solve(scaled_budget)
+    selected_cost = float(costs[selection].sum())
+    if selected_cost <= budget:
+        return selection, "optimal:milp"
+
+    # HiGHS applies a small feasibility tolerance to the scaled constraint. At
+    # multi-million-dollar budgets this can translate back to a few dollars.
+    # Never return an over-budget portfolio: if tolerance was used, rerun with
+    # a conservative sub-part-per-million reserve and report that fact.
+    overage = selected_cost - budget
+    feasibility_reserve = overage + max(0.01, cost_scale * 1e-6)
+    safe_budget = max(0.0, budget - feasibility_reserve)
+    selection = solve(safe_budget / cost_scale)
+    return selection, "optimal:milp_with_feasibility_buffer"
+
+
+def _solve_with_priority_protection(
+    priority_scores: np.ndarray,
+    priority_ranks: np.ndarray,
+    costs: np.ndarray,
+    budget: float,
+    protection_fraction: float,
+) -> tuple[np.ndarray, np.ndarray, str]:
+    """Protect a strict top-ranked prefix, then optimize the residual budget.
+
+    The protected prefix may use no more than ``protection_fraction`` of the
+    total budget.  Once the next ranked bridge does not fit inside that cap,
+    prefix construction stops; lower-ranked bridges cannot jump over it.
+    """
+
+    bridge_count = len(priority_scores)
+    protected = np.zeros(bridge_count, dtype=bool)
+    if budget <= 0 or float(costs.sum()) <= budget:
+        selected, status = _solve_selection(priority_scores, costs, budget)
+        return selected, protected, status
+
+    protection_cap = budget * protection_fraction
+    protected_cost = 0.0
+    order = np.argsort(priority_ranks, kind="stable")
+    for index in order:
+        next_cost = protected_cost + float(costs[index])
+        if next_cost > protection_cap:
+            break
+        protected[index] = True
+        protected_cost = next_cost
+
+    remaining = ~protected
+    selected = protected.copy()
+    residual_status = "optimal:no_remaining_candidates"
+    if remaining.any():
+        residual_selection, residual_status = _solve_selection(
+            priority_scores[remaining],
+            costs[remaining],
+            max(0.0, budget - protected_cost),
+        )
+        selected[np.flatnonzero(remaining)[residual_selection]] = True
+
+    if not protected.any():
+        return selected, protected, residual_status
+    suffix = residual_status.removeprefix("optimal:")
+    return selected, protected, f"optimal:priority_protected_prefix+{suffix}"
 
 
 def allocate_budget(
@@ -177,6 +245,7 @@ def allocate_budget(
     county_fips: str | int | None = None,
     penndot_district: int | None = None,
     high_risk_threshold: float = 0.70,
+    priority_protection_fraction: float = 0.25,
 ) -> tuple[pd.DataFrame, AllocationSummary]:
     """Return candidate bridges marked Selected or Unfunded plus a summary."""
 
@@ -184,12 +253,17 @@ def allocate_budget(
     try:
         budget_value = float(budget)
         risk_threshold = float(high_risk_threshold)
+        protection_fraction = float(priority_protection_fraction)
     except (TypeError, ValueError) as exc:
         raise DataValidationError("Budget and high-risk threshold must be numeric") from exc
     if not math.isfinite(budget_value) or budget_value < 0:
         raise DataValidationError("Budget must be finite and nonnegative")
     if not math.isfinite(risk_threshold) or not 0 <= risk_threshold <= 1:
         raise DataValidationError("High-risk threshold must be between 0 and 1")
+    if not math.isfinite(protection_fraction) or not 0 <= protection_fraction <= 1:
+        raise DataValidationError(
+            "priority_protection_fraction must be between 0 and 1"
+        )
 
     bridge_ids = frame["bridge_id"].astype("string").str.strip()
     if bridge_ids.eq("").any() or bridge_ids.duplicated().any():
@@ -233,10 +307,10 @@ def allocate_budget(
     if not costs.gt(0).all():
         raise DataValidationError("predicted_cost must be greater than zero")
 
-    probabilities = _numeric(candidates, "deterioration_probability")
-    if not probabilities.between(0, 1).all():
+    risk_scores = _numeric(candidates, "deterioration_risk_score")
+    if not risk_scores.between(0, 1).all():
         raise DataValidationError(
-            "deterioration_probability must be between 0 and 1"
+            "deterioration_risk_score must be between 0 and 1"
         )
 
     adt = _numeric(candidates, "adt")
@@ -244,12 +318,17 @@ def allocate_budget(
         raise DataValidationError("adt cannot be negative")
     detour = _numeric(candidates, "detour_km", allow_missing=True)
 
-    selected_mask, solver_status = _solve_selection(
-        priority_scores.to_numpy(), costs.to_numpy(), budget_value
+    selected_mask, protected_mask, solver_status = _solve_with_priority_protection(
+        priority_scores.to_numpy(),
+        candidates["priority_rank"].to_numpy(dtype=float),
+        costs.to_numpy(),
+        budget_value,
+        protection_fraction,
     )
 
     allocation = candidates.copy()
     allocation["selected_for_repair"] = selected_mask
+    allocation["priority_protected"] = protected_mask
     allocation["funding_status"] = np.where(
         selected_mask, "Selected", "Unfunded"
     )
@@ -272,6 +351,7 @@ def allocate_budget(
 
     selected_detour = detour[selected_mask]
     selected_score_total = float(priority_scores[selected_mask].sum())
+    protected_cost = float(costs[protected_mask].sum())
     summary = AllocationSummary(
         region=region,
         budget=round(budget_value, 2),
@@ -288,12 +368,19 @@ def allocate_budget(
         mean_selected_priority_score=round(
             selected_score_total / len(selected) if len(selected) else 0.0, 4
         ),
+        priority_protection_fraction=protection_fraction,
+        priority_protected_bridge_count=int(protected_mask.sum()),
+        priority_protected_budget_used=round(protected_cost, 2),
+        priority_protected_budget_percent=round(
+            100 * protected_cost / budget_value if budget_value > 0 else 0.0,
+            4,
+        ),
         high_risk_threshold=risk_threshold,
         selected_high_risk_count=int(
-            probabilities[selected_mask].ge(risk_threshold).sum()
+            risk_scores[selected_mask].ge(risk_threshold).sum()
         ),
         unfunded_high_risk_count=int(
-            probabilities[~selected_mask].ge(risk_threshold).sum()
+            risk_scores[~selected_mask].ge(risk_threshold).sum()
         ),
         selected_poor_condition_count=int(
             selected["bridge_condition"]
@@ -331,6 +418,12 @@ def _parse_args() -> argparse.Namespace:
         default=0.70,
         help="Reporting threshold; does not change optimization",
     )
+    parser.add_argument(
+        "--priority-protection-fraction",
+        type=float,
+        default=0.25,
+        help="Maximum budget fraction reserved for a strict top-ranked prefix",
+    )
     parser.add_argument("--output", required=True, help="Allocation output CSV")
     return parser.parse_args()
 
@@ -349,6 +442,7 @@ def main() -> int:
             county_fips=args.county_fips,
             penndot_district=args.district,
             high_risk_threshold=args.high_risk_threshold,
+            priority_protection_fraction=args.priority_protection_fraction,
         )
     except (DataValidationError, OSError, pd.errors.ParserError) as exc:
         print(json.dumps({"status": "error", "message": str(exc)}, indent=2))

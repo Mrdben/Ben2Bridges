@@ -15,10 +15,10 @@ B,08,1,ROAD B,CREEK B,SOUTH,39432979,077181454,20,1970,5000,2024,6,6,6,N,F,6
 C,11,3,ROAD C,RIVER C,EAST,39432979,077181454,30,1980,10000,2024,7,7,7,N,G,7
 """
 
-PREDICTIONS = """bridge_id,deterioration_probability,predicted_cost,cost_unit,prediction_horizon_years,model_version
-A,0.90,10000000,USD,1,mock-v1
-B,0.70,5000000,USD,1,mock-v1
-C,0.60,5000000,USD,1,mock-v1
+PREDICTIONS = """bridge_id,deterioration_risk_score,predicted_cost,cost_unit,prediction_horizon,model_version,risk_score_semantics,cost_reference_year,cost_method,cost_source_component,cost_lower_80,cost_upper_80,cost_high_probability,cost_is_derived
+A,0.90,10000000,USD,next_inspection,mock-v1,synthetic_mock_score,2025,mock_cost,DECK,8000000,12000000,0.1,true
+B,0.70,5000000,USD,next_inspection,mock-v1,synthetic_mock_score,2025,mock_cost,SUPERSTRUCTURE,4000000,6000000,0.1,true
+C,0.60,5000000,USD,next_inspection,mock-v1,synthetic_mock_score,2025,mock_cost,SUBSTRUCTURE,4000000,6000000,0.1,true
 """
 
 COUNTIES = """county_fips,county_name,penndot_district
@@ -57,6 +57,8 @@ class RecommendationTests(unittest.TestCase):
         self.assertTrue(serialized)
         self.assertEqual(response["status"], "ok")
         self.assertEqual(response["schema_version"], "1.0")
+        self.assertEqual(response["request"]["priority_protection_fraction"], 0.25)
+        self.assertIn("priority_protected_bridge_count", response["summary"])
         self.assertLessEqual(
             response["summary"]["total_predicted_cost"],
             response["summary"]["budget"],
@@ -70,6 +72,9 @@ class RecommendationTests(unittest.TestCase):
         self.assertIn("priority_rank_in_region", record)
         self.assertIn("latitude", record)
         self.assertIn("longitude", record)
+        self.assertIn("deterioration_risk_score", record)
+        self.assertIn("priority_protected", record)
+        self.assertEqual(record["prediction_horizon"], "next_inspection")
         self.assertEqual(len(record["reasons"]), 2)
         self.assertIn("highest-scoring portfolio", record["selection_explanation"])
 
@@ -77,7 +82,11 @@ class RecommendationTests(unittest.TestCase):
         response = self.generate()
 
         self.assertTrue(response["development_data"])
-        self.assertIn("Development model predictions", response["warnings"][0])
+        self.assertTrue(response["provisional_methodology"])
+        self.assertTrue(
+            any("Development model predictions" in item for item in response["warnings"])
+        )
+        self.assertIn("provisional planning result", response["warnings"][0])
 
     def test_county_filter_returns_only_that_county_and_regional_ranks(self) -> None:
         response = self.generate(county_fips="001")

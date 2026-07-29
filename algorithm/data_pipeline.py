@@ -43,11 +43,19 @@ NBI_COLUMNS = {
 
 PREDICTION_COLUMNS = {
     "bridge_id",
-    "deterioration_probability",
+    "deterioration_risk_score",
     "predicted_cost",
     "cost_unit",
-    "prediction_horizon_years",
+    "prediction_horizon",
     "model_version",
+    "risk_score_semantics",
+    "cost_reference_year",
+    "cost_method",
+    "cost_source_component",
+    "cost_lower_80",
+    "cost_upper_80",
+    "cost_high_probability",
+    "cost_is_derived",
 }
 
 COUNTY_COLUMNS = {"county_fips", "county_name", "penndot_district"}
@@ -66,7 +74,11 @@ class ValidationReport:
     invalid_detour_count: int
     invalid_adt_year_count: int
     cost_unit: str
-    prediction_horizon_years: int
+    prediction_horizon: str
+    risk_score_semantics: str
+    cost_reference_year: int
+    cost_methods: tuple[str, ...]
+    derived_costs: bool
     model_versions: tuple[str, ...]
     warnings: tuple[str, ...]
 
@@ -354,13 +366,13 @@ def _prepare_predictions(frame: pd.DataFrame) -> pd.DataFrame:
             f"Model predictions have duplicate bridge IDs after cleaning: {values}"
         )
 
-    probability = _numeric(
-        frame["deterioration_probability"], "deterioration_probability"
+    risk_score = _numeric(
+        frame["deterioration_risk_score"], "deterioration_risk_score"
     )
-    _finite(probability, "deterioration_probability")
-    if not probability.between(0, 1).all():
+    _finite(risk_score, "deterioration_risk_score")
+    if not risk_score.between(0, 1).all():
         raise DataValidationError(
-            "deterioration_probability must be between 0 and 1"
+            "deterioration_risk_score must be between 0 and 1"
         )
 
     predicted_cost = _numeric(frame["predicted_cost"], "predicted_cost")
@@ -372,28 +384,84 @@ def _prepare_predictions(frame: pd.DataFrame) -> pd.DataFrame:
     if cost_unit.nunique() != 1:
         raise DataValidationError("cost_unit must be consistent across all predictions")
 
-    horizon = _numeric(
-        frame["prediction_horizon_years"], "prediction_horizon_years"
+    horizon = _nonempty_text(
+        frame["prediction_horizon"], "prediction_horizon"
     )
-    if not horizon.eq(horizon.astype("int64")).all() or not horizon.gt(0).all():
-        raise DataValidationError(
-            "prediction_horizon_years must contain positive integers"
-        )
     if horizon.nunique() != 1:
         raise DataValidationError(
-            "prediction_horizon_years must be consistent across all predictions"
+            "prediction_horizon must be consistent across all predictions"
+        )
+
+    risk_semantics = _nonempty_text(
+        frame["risk_score_semantics"], "risk_score_semantics"
+    )
+    if risk_semantics.nunique() != 1:
+        raise DataValidationError(
+            "risk_score_semantics must be consistent across all predictions"
+        )
+
+    cost_year = _numeric(frame["cost_reference_year"], "cost_reference_year")
+    _whole_numbers(cost_year, "cost_reference_year")
+    if not cost_year.between(1900, 2100).all() or cost_year.nunique() != 1:
+        raise DataValidationError(
+            "cost_reference_year must be one consistent year from 1900 to 2100"
+        )
+
+    cost_method = _nonempty_text(frame["cost_method"], "cost_method")
+    source_component = _nonempty_text(
+        frame["cost_source_component"], "cost_source_component"
+    ).str.upper()
+    if not source_component.isin(
+        {"DECK", "SUPERSTRUCTURE", "SUBSTRUCTURE"}
+    ).all():
+        raise DataValidationError("cost_source_component contains invalid values")
+
+    lower_cost = _numeric(frame["cost_lower_80"], "cost_lower_80")
+    upper_cost = _numeric(frame["cost_upper_80"], "cost_upper_80")
+    if (
+        lower_cost.lt(0).any()
+        or lower_cost.gt(predicted_cost).any()
+        or upper_cost.lt(predicted_cost).any()
+    ):
+        raise DataValidationError(
+            "predicted_cost must fall within cost_lower_80 and cost_upper_80"
+        )
+
+    high_cost_probability = _numeric(
+        frame["cost_high_probability"], "cost_high_probability"
+    )
+    if not high_cost_probability.between(0, 1).all():
+        raise DataValidationError("cost_high_probability must be between 0 and 1")
+
+    derived_text = _nonempty_text(
+        frame["cost_is_derived"], "cost_is_derived"
+    ).str.lower()
+    if not derived_text.isin({"true", "false"}).all():
+        raise DataValidationError("cost_is_derived must contain true or false")
+    cost_is_derived = derived_text.eq("true")
+    if cost_is_derived.nunique() != 1:
+        raise DataValidationError(
+            "cost_is_derived must be consistent across all predictions"
         )
 
     return pd.DataFrame(
         {
             "bridge_id": bridge_id,
-            "deterioration_probability": probability.astype("float64"),
+            "deterioration_risk_score": risk_score.astype("float64"),
             "predicted_cost": predicted_cost.astype("float64"),
             "cost_unit": cost_unit,
-            "prediction_horizon_years": horizon.astype("int64"),
+            "prediction_horizon": horizon,
             "model_version": _nonempty_text(
                 frame["model_version"], "model_version"
             ),
+            "risk_score_semantics": risk_semantics,
+            "cost_reference_year": cost_year.astype("int64"),
+            "cost_method": cost_method,
+            "cost_source_component": source_component,
+            "cost_lower_80": lower_cost.astype("float64"),
+            "cost_upper_80": upper_cost.astype("float64"),
+            "cost_high_probability": high_cost_probability.astype("float64"),
+            "cost_is_derived": cost_is_derived.astype("bool"),
         }
     )
 
@@ -450,6 +518,11 @@ def load_algorithm_inputs(
             f"{invalid_adt_year_count:,} NBI bridge(s) have ADT years outside "
             "1900-2025; adt_year was set to missing."
         )
+    if bool(predictions["cost_is_derived"].iloc[0]):
+        methods = ", ".join(sorted(predictions["cost_method"].unique()))
+        warnings.append(
+            "Predicted costs are derived planning estimates using: " + methods + "."
+        )
 
     report = ValidationReport(
         nbi_bridge_count=nbi_count,
@@ -460,9 +533,11 @@ def load_algorithm_inputs(
         invalid_detour_count=invalid_detour_count,
         invalid_adt_year_count=invalid_adt_year_count,
         cost_unit=str(predictions["cost_unit"].iloc[0]),
-        prediction_horizon_years=int(
-            predictions["prediction_horizon_years"].iloc[0]
-        ),
+        prediction_horizon=str(predictions["prediction_horizon"].iloc[0]),
+        risk_score_semantics=str(predictions["risk_score_semantics"].iloc[0]),
+        cost_reference_year=int(predictions["cost_reference_year"].iloc[0]),
+        cost_methods=tuple(sorted(predictions["cost_method"].unique())),
+        derived_costs=bool(predictions["cost_is_derived"].iloc[0]),
         model_versions=tuple(sorted(predictions["model_version"].unique())),
         warnings=tuple(warnings),
     )

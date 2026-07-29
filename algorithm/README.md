@@ -18,11 +18,13 @@ Current files:
 - `data_pipeline.py`: validates and joins NBI, prediction, and county data into
   the bridge-level table consumed by later scoring code.
 - `tests/test_data_pipeline.py`: automated validation tests.
-- `scoring.py`: calculates normalized component scores, applies a provisional
-  policy profile, and produces a bridge ranking.
+- `scoring.py`: calculates normalized component scores, applies a named policy
+  profile, and produces a bridge ranking. Balanced uses calibrated
+  official-informed weights; Safety and Traffic remain provisional.
 - `SCORING_METHOD.md`: formula, normalization, policy profiles, and limitations.
 - `tests/test_scoring.py`: automated scoring and ranking tests.
-- `budget_allocation.py`: exact budget-constrained bridge portfolio selection.
+- `budget_allocation.py`: priority-protected budget selection with exact MILP
+  optimization of the residual budget.
 - `BUDGET_ALLOCATION.md`: optimization objective, constraints, outputs, and
   limitations.
 - `tests/test_budget_allocation.py`: allocation and geographic-filter tests.
@@ -31,8 +33,62 @@ Current files:
 - `WEBSITE_INTEGRATION.md`: stable JSON contract and plan for connecting the
   algorithm to the group's website.
 - `tests/test_recommendation.py`: end-to-end recommendation response tests.
+- `deterioration_adapter.py`: aligns the model team's full deterioration
+  rankings to the current NBI bridge population without imputing missing model
+  scores.
+- `DETERIORATION_ADAPTER.md`: matching, exclusion, and score-interpretation
+  policy for the deterioration model handoff.
+- `tests/test_deterioration_adapter.py`: adapter validation and coverage tests.
+- `cost_adapter.py`: converts the cost team's conditional whole-project
+  scenario catalog into one conservative, explicitly derived cost per bridge
+  and combines it with usable deterioration scores.
+- `COST_ADAPTER.md`: cost interpretation, fallback method, and limitations.
+- `tests/test_cost_adapter.py`: cost-adapter validation and matching tests.
+- `evaluate_algorithm.py`: fixed-weight sensitivity evaluation across multiple
+  budgets and strategies.
+- `EVALUATION_RESULTS.md`: results and interpretation from the real model-output
+  evaluation.
+- `calibration_data.py`: combines official NBI history, a partial PennDOT
+  importance reconstruction, and PennEnviroScreen audit fields.
+- `calibrate_weights.py`: searches bounded Balanced weights and compares exact
+  budget portfolios.
+- `WEIGHT_CALIBRATION.md`: calibration evidence, selection rule, results, and
+  limitations.
 
 ## Build the algorithm input table
+
+When the deterioration model arrives as a full risk-ranking export, validate
+and align it before combining it with the cost model:
+
+```bash
+python algorithm/deterioration_adapter.py \
+  --nbi "website/Data/PA 2025.csv" \
+  --rankings "/path/to/next_inspection_bridge_risk_rankings.csv" \
+  --output-dir /tmp/ben2bridges_deterioration
+```
+
+Unmodeled bridges are reported separately and receive no invented risk score.
+The resulting usable risk-score file is an intermediate input; it still needs
+to be joined with the cost-model output before the unified recommendation
+engine can run.
+
+Create the combined prediction file from the current cost catalog:
+
+```bash
+python algorithm/cost_adapter.py \
+  --nbi "website/Data/PA 2025.csv" \
+  --risk algorithm/generated/deterioration/usable_deterioration_predictions.csv \
+  --catalog "/path/to/all_latest_bridges_part_wise_cost_catalog.csv" \
+  --cost-reference-year 2025 \
+  --prediction-horizon next_inspection \
+  --output-dir algorithm/generated/combined
+```
+
+The catalog rows are alternative conditional whole-project scenarios, so the
+adapter does not add component costs. It temporarily uses the largest scenario
+per bridge and records the derivation method and source component. Generated
+artifacts are ignored by Git because the source model outputs are delivered
+separately.
 
 From the repository root:
 
@@ -64,10 +120,10 @@ python algorithm/scoring.py \
   --output /tmp/ben2bridges_scored.csv
 ```
 
-Available provisional strategies are `balanced`, `safety`, and `traffic`.
-Their weights are starting policy assumptions, not statistically proven
-optima. They must be reviewed through sensitivity analysis after budget
-optimization is available.
+Available strategies are `balanced`, `safety`, and `traffic`. Balanced uses the
+official-informed calibrated weights `45/25/25/5`. Safety and Traffic remain
+provisional policy profiles. None is a government-approved or universally
+optimal funding policy.
 
 ## Allocate a budget
 
@@ -85,8 +141,10 @@ Optional geographic filters:
 --district 8
 ```
 
-Only one geographic filter may be supplied at a time. The command uses exact
-0-1 mixed-integer optimization, not a greedy top-down ranking.
+Only one geographic filter may be supplied at a time. By default, no more than
+25% of the budget protects a strict top-ranked prefix; the remaining budget
+uses exact 0-1 mixed-integer optimization. Advanced CLI runs can override the
+default with `--priority-protection-fraction`.
 
 ## Generate one website-ready recommendation
 
@@ -104,3 +162,7 @@ python algorithm/recommendation.py \
 
 Optional `--county-fips` and `--district` filters are mutually exclusive. The
 mock predictions trigger a development-data warning in the JSON response.
+For a real combined file, replace the mock path with
+`algorithm/generated/combined/combined_model_predictions.csv`. Current risk
+scores and derived costs remain provisional inputs and must be labeled as such
+in the website and presentation.

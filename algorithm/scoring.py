@@ -1,8 +1,7 @@
 """Normalize decision indicators and calculate bridge priority scores.
 
-The policy profiles in this module are provisional. They express different
-planning priorities and will be evaluated through sensitivity analysis after
-the budget-allocation module is implemented.
+Balanced uses official-informed robust weights selected from a bounded search.
+Safety and Traffic remain transparent provisional policy profiles.
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ except ImportError:  # Support direct execution: python algorithm/scoring.py
 
 SCORING_COLUMNS = {
     "bridge_id",
-    "deterioration_probability",
+    "deterioration_risk_score",
     "lowest_rating",
     "adt",
     "detour_km",
@@ -52,12 +51,12 @@ class ScoreWeights:
         return asdict(self)
 
 
-PROVISIONAL_PROFILES: dict[str, ScoreWeights] = {
+SCORING_PROFILES: dict[str, ScoreWeights] = {
     "balanced": ScoreWeights(
-        deterioration=0.40,
-        condition=0.15,
-        traffic=0.30,
-        detour=0.15,
+        deterioration=0.45,
+        condition=0.25,
+        traffic=0.25,
+        detour=0.05,
     ),
     "safety": ScoreWeights(
         deterioration=0.55,
@@ -73,6 +72,16 @@ PROVISIONAL_PROFILES: dict[str, ScoreWeights] = {
     ),
 }
 
+# Kept as a compatibility alias for existing integrations.  The mapping now
+# contains one calibrated default plus two provisional profiles.
+PROVISIONAL_PROFILES = SCORING_PROFILES
+
+PROFILE_WEIGHT_STATUS = {
+    "balanced": "official_informed_calibrated",
+    "safety": "provisional_policy_profile",
+    "traffic": "provisional_policy_profile",
+}
+
 
 @dataclass(frozen=True)
 class ScoringReport:
@@ -84,6 +93,7 @@ class ScoringReport:
     minimum_priority_score: float
     mean_priority_score: float
     maximum_priority_score: float
+    weight_status: str
     provisional_weights: bool = True
 
     def to_dict(self) -> dict[str, object]:
@@ -130,7 +140,7 @@ def resolve_weights(
     strategy: str = "balanced",
     custom_weights: Mapping[str, float] | None = None,
 ) -> tuple[str, ScoreWeights]:
-    """Resolve either a named provisional profile or explicit custom weights."""
+    """Resolve either a named policy profile or explicit custom weights."""
 
     if custom_weights is not None:
         missing = sorted(set(INDICATORS).difference(custom_weights))
@@ -147,12 +157,12 @@ def resolve_weights(
         return "custom", ScoreWeights(**dict(custom_weights))
 
     normalized_strategy = strategy.strip().lower()
-    if normalized_strategy not in PROVISIONAL_PROFILES:
-        choices = ", ".join(sorted(PROVISIONAL_PROFILES))
+    if normalized_strategy not in SCORING_PROFILES:
+        choices = ", ".join(sorted(SCORING_PROFILES))
         raise DataValidationError(
             f"Unknown strategy {strategy!r}; expected one of: {choices}"
         )
-    return normalized_strategy, PROVISIONAL_PROFILES[normalized_strategy]
+    return normalized_strategy, SCORING_PROFILES[normalized_strategy]
 
 
 def score_bridges(
@@ -171,10 +181,10 @@ def score_bridges(
     _require_columns(frame)
     strategy_name, weights = resolve_weights(strategy, custom_weights)
 
-    probability = _numeric(frame, "deterioration_probability")
-    if not probability.between(0, 1).all():
+    risk_score = _numeric(frame, "deterioration_risk_score")
+    if not risk_score.between(0, 1).all():
         raise DataValidationError(
-            "deterioration_probability must be between 0 and 1"
+            "deterioration_risk_score must be between 0 and 1"
         )
 
     lowest_rating = _numeric(frame, "lowest_rating")
@@ -194,7 +204,7 @@ def score_bridges(
         raise DataValidationError("predicted_cost must be greater than zero")
 
     scored = frame.copy()
-    scored["deterioration_score"] = probability
+    scored["deterioration_score"] = risk_score
     scored["condition_score"] = ((9 - lowest_rating) / 9).clip(0, 1)
 
     # Log compression prevents a few extremely busy bridges from dominating.
@@ -220,7 +230,7 @@ def score_bridges(
     scored = scored.sort_values(
         by=[
             "priority_score",
-            "deterioration_probability",
+            "deterioration_risk_score",
             "lowest_rating",
             "predicted_cost",
             "bridge_id",
@@ -249,7 +259,16 @@ def score_bridges(
         minimum_priority_score=round(float(scored["priority_score"].min()), 4),
         mean_priority_score=round(float(scored["priority_score"].mean()), 4),
         maximum_priority_score=round(float(scored["priority_score"].max()), 4),
-        provisional_weights=custom_weights is None,
+        weight_status=(
+            "custom_user_weights"
+            if custom_weights is not None
+            else PROFILE_WEIGHT_STATUS[strategy_name]
+        ),
+        provisional_weights=(
+            custom_weights is None
+            and PROFILE_WEIGHT_STATUS[strategy_name]
+            == "provisional_policy_profile"
+        ),
     )
     return scored, report
 
@@ -262,8 +281,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--strategy",
         default="balanced",
-        choices=sorted(PROVISIONAL_PROFILES),
-        help="Provisional policy profile",
+        choices=sorted(SCORING_PROFILES),
+        help="Named scoring policy profile",
     )
     parser.add_argument("--output", required=True, help="Output scored CSV")
     return parser.parse_args()
