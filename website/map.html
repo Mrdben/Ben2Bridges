@@ -304,6 +304,62 @@
         line-height: 1.35;
       }
 
+      .bridge-detail-popup .maplibregl-popup-content {
+        width: min(270px, calc(100vw - 48px));
+        padding: 15px 16px;
+        border-radius: 12px;
+        box-shadow: 0 14px 34px rgb(15 23 42 / 24%);
+      }
+
+      .bridge-detail-popup .maplibregl-popup-close-button {
+        top: 4px;
+        right: 5px;
+        width: 28px;
+        height: 28px;
+        color: #64748b;
+        font-size: 1.1rem;
+      }
+
+      .bridge-popup-name {
+        padding-right: 24px;
+        color: #172033;
+        font-size: 0.94rem;
+        font-weight: 750;
+        line-height: 1.35;
+      }
+
+      .bridge-popup-details {
+        display: grid;
+        gap: 7px;
+        margin-top: 11px;
+      }
+
+      .bridge-popup-row {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr);
+        gap: 10px;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 7px;
+        font-size: 0.74rem;
+        line-height: 1.35;
+      }
+
+      .bridge-popup-row span { color: #64748b; }
+      .bridge-popup-row strong { color: #334155; font-weight: 700; }
+
+      .risk-indicator {
+        justify-self: start;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 0.7rem;
+      }
+
+      .risk-very-high { color: #991b1b !important; background: #fee2e2; }
+      .risk-high { color: #9a3412 !important; background: #ffedd5; }
+      .risk-moderate { color: #854d0e !important; background: #fef9c3; }
+      .risk-low { color: #166534 !important; background: #dcfce7; }
+      .risk-very-low { color: #166534 !important; background: #ecfdf5; }
+
       @media (max-width: 860px) {
         .nav-links a:not(.nav-button) { display: none; }
       }
@@ -340,7 +396,7 @@
       <aside class="filters-panel" aria-label="Bridge search and filters">
         <p class="eyebrow">Pennsylvania NBI 2025</p>
         <h2>Explore bridges</h2>
-        <p class="panel-intro">Search by road, crossed feature, location, or bridge ID, then narrow the statewide dataset.</p>
+        <p class="panel-intro">Search by road, crossed feature, location, or bridge ID, then narrow the statewide dataset by risk and bridge details.</p>
 
         <div class="field">
           <label for="bridge-search">Search</label>
@@ -355,6 +411,18 @@
             <option value="G">Good</option>
             <option value="F">Fair</option>
             <option value="P">Poor</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="risk-filter">Deterioration risk</label>
+          <select id="risk-filter">
+            <option value="all">All risk levels</option>
+            <option value="Very high">Very high</option>
+            <option value="High">High</option>
+            <option value="Moderate">Moderate</option>
+            <option value="Low">Low</option>
+            <option value="Very low">Very low</option>
           </select>
         </div>
 
@@ -410,6 +478,7 @@
       const numberFormatter = new Intl.NumberFormat("en-US");
       const searchInput = document.getElementById("bridge-search");
       const conditionFilter = document.getElementById("condition-filter");
+      const riskFilter = document.getElementById("risk-filter");
       const ageFilter = document.getElementById("age-filter");
       const materialFilter = document.getElementById("material-filter");
       const resetButton = document.getElementById("reset-filters");
@@ -466,6 +535,7 @@
 
         const query = searchInput.value.trim().toLowerCase();
         const condition = conditionFilter.value;
+        const riskLevel = riskFilter.value;
         const age = ageFilter.value;
         const material = materialFilter.value;
 
@@ -480,6 +550,7 @@
 
           return (!query || searchable.includes(query)) &&
             (condition === "all" || properties.condition === condition) &&
+            (riskLevel === "all" || properties.riskLevel === riskLevel) &&
             matchesAge(properties.yearBuilt, age) &&
             (material === "all" || String(properties.materialKind) === material);
         });
@@ -504,6 +575,7 @@
       function resetFilters() {
         searchInput.value = "";
         conditionFilter.value = "all";
+        riskFilter.value = "all";
         ageFilter.value = "all";
         materialFilter.value = "all";
         applyFilters(false);
@@ -522,6 +594,7 @@
         }
       });
       conditionFilter.addEventListener("change", () => applyFilters(false));
+      riskFilter.addEventListener("change", () => applyFilters(false));
       ageFilter.addEventListener("change", () => applyFilters(false));
       materialFilter.addEventListener("change", () => applyFilters(false));
       resetButton.addEventListener("click", resetFilters);
@@ -605,12 +678,30 @@
           offset: 10,
           className: "bridge-hover-popup"
         });
+        const detailPopup = new maplibregl.Popup({
+          closeButton: true,
+          closeOnClick: true,
+          offset: 12,
+          className: "bridge-detail-popup"
+        });
+        let detailPopupOpen = false;
+        detailPopup.on("open", () => {
+          detailPopupOpen = true;
+          hoverPopup.remove();
+        });
+        detailPopup.on("close", () => {
+          detailPopupOpen = false;
+        });
 
         map.on("mousemove", "bridge-points", (event) => {
           const feature = event.features && event.features[0];
           if (!feature) return;
 
           map.getCanvas().style.cursor = "pointer";
+          if (detailPopupOpen) {
+            hoverPopup.remove();
+            return;
+          }
           const properties = feature.properties || {};
           const title = properties.facility && properties.featureCrossed
             ? properties.facility + " over " + properties.featureCrossed
@@ -644,7 +735,57 @@
           hoverPopup.remove();
         });
 
-        fetch("./Data/pa_bridges_2025_map.geojson")
+        map.on("click", "bridge-points", (event) => {
+          const feature = event.features && event.features[0];
+          if (!feature) return;
+
+          const properties = feature.properties || {};
+          const title = properties.facility && properties.featureCrossed
+            ? properties.facility + " over " + properties.featureCrossed
+            : properties.facility || properties.featureCrossed || "Bridge " + feature.id;
+
+          const content = document.createElement("div");
+          const name = document.createElement("div");
+          name.className = "bridge-popup-name";
+          name.textContent = title;
+          content.appendChild(name);
+
+          const details = document.createElement("div");
+          details.className = "bridge-popup-details";
+          const probability = Number(properties.riskProbability);
+          const probabilityText = Number.isFinite(probability)
+            ? `${(probability * 100).toFixed(1)}%`
+            : "Not listed";
+          const riskLevel = properties.riskLevel || "Not listed";
+          const riskClass = properties.riskLevel
+            ? `risk-indicator risk-${String(properties.riskLevel).toLowerCase().replace(/\s+/g, "-")}`
+            : "";
+          [
+            ["Risk level", riskLevel, riskClass],
+            ["Probability", probabilityText, ""],
+            ["Year built", properties.yearBuilt || "Not listed", ""],
+            ["Location", properties.location || "Not listed", ""],
+            ["Daily traffic", properties.adt ? Number(properties.adt).toLocaleString() + " vehicles" : "Not listed", ""]
+          ].forEach(([labelText, valueText, valueClass]) => {
+            const row = document.createElement("div");
+            row.className = "bridge-popup-row";
+            const label = document.createElement("span");
+            label.textContent = labelText;
+            const value = document.createElement("strong");
+            value.textContent = valueText;
+            if (valueClass) value.className = valueClass;
+            row.append(label, value);
+            details.appendChild(row);
+          });
+          content.appendChild(details);
+
+          detailPopup
+            .setLngLat(feature.geometry.coordinates)
+            .setDOMContent(content)
+            .addTo(map);
+        });
+
+        fetch("./Data/pa_bridges_2025_map.geojson?v=20260729-risk")
           .then((response) => {
             if (!response.ok) throw new Error("Bridge data request failed: " + response.status);
             return response.json();

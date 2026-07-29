@@ -10,6 +10,7 @@ from pathlib import Path
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 INPUT_PATH = WEBSITE_DIR / "Data" / "PA 2025.csv"
+RISK_INPUT_PATH = WEBSITE_DIR / "Data" / "riskrank.csv"
 OUTPUT_PATH = WEBSITE_DIR / "Data" / "pa_bridges_2025.geojson"
 MAP_OUTPUT_PATH = WEBSITE_DIR / "Data" / "pa_bridges_2025_map.geojson"
 
@@ -35,6 +36,14 @@ REQUIRED_COLUMNS = {
     "DATE_OF_INSPECT_090",
     "BRIDGE_CONDITION",
     "LOWEST_RATING",
+}
+
+REQUIRED_RISK_COLUMNS = {
+    "STRUCTURE_NUMBER_008",
+    "MODEL_DETERIORATION_RISK_SCORE",
+    "RISK_RANK",
+    "RISK_PERCENTILE",
+    "RISK_GROUP",
 }
 
 
@@ -97,9 +106,50 @@ def inspection_date_code(value: str | None) -> str | None:
     return cleaned.zfill(4)
 
 
+def load_risk_data() -> dict[str, dict[str, object]]:
+    risk_by_id: dict[str, dict[str, object]] = {}
+
+    with RISK_INPUT_PATH.open("r", encoding="utf-8-sig", newline="") as source:
+        reader = csv.DictReader(source)
+        missing_columns = REQUIRED_RISK_COLUMNS.difference(reader.fieldnames or [])
+        if missing_columns:
+            missing = ", ".join(sorted(missing_columns))
+            raise ValueError(f"Risk CSV is missing required columns: {missing}")
+
+        for row_number, row in enumerate(reader, start=2):
+            bridge_id = clean_text(row["STRUCTURE_NUMBER_008"])
+            if bridge_id is None:
+                raise ValueError(f"Missing bridge ID on risk CSV row {row_number}")
+            if bridge_id in risk_by_id:
+                raise ValueError(
+                    f"Duplicate bridge ID {bridge_id!r} on risk CSV row {row_number}"
+                )
+
+            probability = parse_number(row["MODEL_DETERIORATION_RISK_SCORE"])
+            risk_level = clean_text(row["RISK_GROUP"])
+            if probability is None or not 0 <= probability <= 1:
+                raise ValueError(
+                    f"Invalid deterioration probability for bridge {bridge_id!r}: "
+                    f"{row['MODEL_DETERIORATION_RISK_SCORE']!r}"
+                )
+            if risk_level is None:
+                raise ValueError(f"Missing risk group for bridge {bridge_id!r}")
+
+            risk_by_id[bridge_id] = {
+                "riskProbability": probability,
+                "riskLevel": risk_level,
+                "riskRank": parse_number(row["RISK_RANK"], integer=True),
+                "riskPercentile": parse_number(row["RISK_PERCENTILE"]),
+            }
+
+    return risk_by_id
+
+
 def convert() -> dict[str, object]:
+    risk_by_id = load_risk_data()
     features: list[dict[str, object]] = []
     seen_ids: set[str] = set()
+    matched_ids: set[str] = set()
     min_lon = math.inf
     min_lat = math.inf
     max_lon = -math.inf
@@ -119,6 +169,11 @@ def convert() -> dict[str, object]:
             if bridge_id in seen_ids:
                 raise ValueError(f"Duplicate bridge ID {bridge_id!r} on CSV row {row_number}")
             seen_ids.add(bridge_id)
+
+            risk = risk_by_id.get(bridge_id)
+            if risk is None:
+                continue
+            matched_ids.add(bridge_id)
 
             latitude = dms_to_decimal(row["LAT_016"])
             longitude = dms_to_decimal(row["LONG_017"], western_longitude=True)
@@ -153,6 +208,7 @@ def convert() -> dict[str, object]:
                 "structureType": parse_number(row["STRUCTURE_TYPE_043B"], integer=True),
                 "deckArea": parse_number(row["DECK_AREA"]),
                 "inspectionDate": inspection_date_code(row["DATE_OF_INSPECT_090"]),
+                **risk,
             }
 
             features.append(
@@ -177,8 +233,12 @@ def convert() -> dict[str, object]:
             round(max_lat, 6),
         ],
         "metadata": {
-            "source": INPUT_PATH.name,
+            "sources": [INPUT_PATH.name, RISK_INPUT_PATH.name],
             "featureCount": len(features),
+            "inventoryFeatureCount": len(seen_ids),
+            "riskFeatureCount": len(risk_by_id),
+            "uncoveredInventoryCount": len(seen_ids) - len(matched_ids),
+            "unmatchedRiskCount": len(risk_by_id) - len(matched_ids),
             "joinKey": "Feature.id corresponds to STRUCTURE_NUMBER_008",
             "coordinatePrecision": 6,
         },
@@ -217,6 +277,8 @@ def convert() -> dict[str, object]:
                         "materialKind",
                         "structureType",
                         "deckArea",
+                        "riskProbability",
+                        "riskLevel",
                     )
                 },
             }

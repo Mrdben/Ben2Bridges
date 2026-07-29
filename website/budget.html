@@ -564,7 +564,7 @@
         formStatus.textContent = "Open start-map.bat so the planner can load bridge data.";
         formStatus.className = "form-status error";
       } else {
-        fetch("./Data/pa_bridges_2025_map.geojson?v=20260728-2")
+        fetch("./Data/pa_bridges_2025_map.geojson?v=20260729-risk")
           .then(function (response) { if (!response.ok) throw new Error("Data request failed"); return response.json(); })
           .then(function (data) {
             allBridgeData = data;
