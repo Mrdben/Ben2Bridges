@@ -264,6 +264,25 @@
       footer { margin-top: 34px; border-top: 1px solid var(--line); padding: 24px 20px 28px; color: var(--muted); background: #ffffff; text-align: center; font-size: 0.76rem; }
       .footer-team { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; margin-top: 12px; color: var(--navy); font-size: 0.82rem; }
       .footer-team strong { font-weight: 700; }
+      .easter-egg-trigger { position: relative; border: 0; padding: 0; color: inherit; background: transparent; cursor: pointer; font: inherit; font-weight: 700; }
+      .easter-egg-trigger:focus-visible { border-radius: 3px; outline: 2px solid var(--blue); outline-offset: 3px; }
+      .team-speech {
+        position: absolute;
+        bottom: calc(100% + 40px);
+        left: 50%;
+        z-index: 10;
+        width: max-content;
+        max-width: min(260px, calc(100vw - 32px));
+        border-radius: 12px;
+        padding: 10px 13px;
+        color: #ffffff;
+        background: var(--navy);
+        box-shadow: 0 12px 30px rgb(15 23 42 / 22%);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      .team-speech::after { position: absolute; top: 100%; left: 50%; border: 7px solid transparent; border-top-color: var(--navy); content: ""; transform: translateX(-50%); }
+      .team-speech { transform: translateX(-50%); }
 
       .hero-copy { animation: hero-in 700ms ease-out both; }
       .hero-visual { animation: hero-in 800ms 120ms ease-out both; }
@@ -365,10 +384,32 @@
       <span>Ben&sup2; Bridges &middot; 2026</span>
       <div class="footer-team" aria-label="Project team">
         <strong>Aarav Sekhri</strong>
-        <strong>Aviral Jain</strong>
+        <button id="aviral-easter-egg" class="easter-egg-trigger" type="button" aria-label="Aviral Jain">Aviral Jain</button>
         <strong>Benjamin Yang</strong>
         <strong>Benjamin Zhang</strong>
       </div>
     </footer>
+    <script>
+      (function () {
+        const trigger = document.getElementById("aviral-easter-egg");
+        const lines = ["Bro Chillll", "LAAARP", "It's accurate 80% of the time..."];
+        let hideTimer;
+
+        trigger.addEventListener("click", function () {
+          window.clearTimeout(hideTimer);
+          trigger.querySelector(".team-speech")?.remove();
+
+          const bubble = document.createElement("span");
+          bubble.className = "team-speech";
+          bubble.setAttribute("aria-hidden", "true");
+          bubble.textContent = lines[Math.floor(Math.random() * lines.length)];
+          trigger.appendChild(bubble);
+
+          hideTimer = window.setTimeout(function () {
+            bubble.remove();
+          }, 3000);
+        });
+      })();
+    </script>
 </body>
 </html>
