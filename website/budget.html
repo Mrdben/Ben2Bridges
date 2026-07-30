@@ -75,8 +75,6 @@
       .results-heading h2 { margin: 0 0 8px; color: var(--navy); font-size: clamp(2rem, 4vw, 3.1rem); letter-spacing: -0.045em; }
       .results-heading p { margin: 0; color: var(--muted); }
       .scenario-label { color: var(--blue); font-size: 0.78rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
-
-      .algorithm-note { margin-bottom: 20px; border: 1px dashed #93c5fd; border-radius: 14px; padding: 15px 18px; color: #1e3a8a; background: #eff6ff; font-size: 0.84rem; line-height: 1.5; }
       .metric-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 22px; }
       .metric { min-width: 0; border: 1px solid var(--line); border-radius: 14px; padding: 19px; background: var(--surface); box-shadow: 0 8px 26px rgb(15 23 42 / 6%); }
       .metric span { display: block; margin-bottom: 8px; color: var(--muted); font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
@@ -101,6 +99,9 @@
       .detail-item { border-top: 2px solid #dbeafe; padding-top: 10px; }
       .detail-item span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
       .detail-item strong { color: var(--navy); font-size: 0.82rem; line-height: 1.4; }
+      .detail-fix { width: 100%; min-height: 42px; margin-top: 18px; border: 0; border-radius: 9px; padding: 0 18px; color: #ffffff; background: var(--blue); cursor: pointer; font-weight: 800; }
+      .detail-fix:hover { background: #3b82f6; }
+      .detail-fix:disabled { color: #64748b; background: #e2e8f0; cursor: not-allowed; }
 
       .map-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 18px; }
       .map-panel { overflow: hidden; }
@@ -204,9 +205,6 @@
             <p id="scenario-subtitle"></p>
           </div>
         </div>
-
-        <div class="algorithm-note"><strong>Planning data:</strong> recommendations use 20,191 bridges with complete model risk scores and derived 2025 cost estimates. Risk scores are normalized model outputs, not confirmed probabilities. Equity/social impact uses detour burden as a provisional access proxy and does not use demographic data.</div>
-
         <div class="metric-grid" aria-label="Budget summary">
           <div class="metric"><span>Recommended to fix</span><strong id="recommended-count">0</strong></div>
           <div class="metric"><span>Total budget</span><strong id="total-budget">$0</strong></div>
@@ -437,7 +435,21 @@
           item.append(label, value);
           detailGrid.appendChild(item);
         });
-        bridgeDetail.append(title, location, detailGrid);
+        const fixButton = document.createElement("button");
+        fixButton.type = "button";
+        fixButton.className = "detail-fix";
+        const alreadyFixed = fixedBridgeIds.has(String(feature.id));
+        const affordable = cost > 0 && remainingBudget() >= cost;
+        fixButton.disabled = alreadyFixed || !affordable;
+        fixButton.textContent = alreadyFixed
+          ? "Already fixed"
+          : cost <= 0
+            ? "Cost unavailable"
+            : affordable
+              ? "Mark as fixed - " + currency.format(cost)
+              : "Not enough budget";
+        fixButton.addEventListener("click", function () { fixBridge(feature); });
+        bridgeDetail.append(title, location, detailGrid, fixButton);
         renderLists();
       }
 
