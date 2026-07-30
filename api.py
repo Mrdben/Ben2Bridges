@@ -26,10 +26,15 @@ def configured_path(variable: str, default: str) -> Path:
 
 
 NBI_PATH = configured_path("BEN2_NBI", "website/Data/PA 2025.csv")
+FULL_PREDICTIONS_PATH = PROJECT_ROOT / "website/Data/combined_model_predictions.csv"
 PREDICTIONS_PATH = configured_path(
     "BEN2_PREDICTIONS",
-    "algorithm/data/mock_model_predictions.csv",
+    "website/Data/combined_model_predictions.csv",
 )
+# Supersede the original Render mock-data setting after the full packaged file
+# becomes available, while preserving custom non-mock deployment paths.
+if PREDICTIONS_PATH.name == "mock_model_predictions.csv" and FULL_PREDICTIONS_PATH.is_file():
+    PREDICTIONS_PATH = FULL_PREDICTIONS_PATH
 COUNTIES_PATH = configured_path("BEN2_COUNTIES", "algorithm/data/pa_counties.csv")
 
 default_origins = {

@@ -205,7 +205,7 @@
           </div>
         </div>
 
-        <div class="algorithm-note"><strong>Development data:</strong> the live algorithm is connected, but its current mock prediction and cost file covers 11 bridges in Adams County and one bridge in Cumberland County. Each method now applies its own scoring weights. Equity/social impact uses detour burden as a provisional access proxy; it does not use demographic data.</div>
+        <div class="algorithm-note"><strong>Planning data:</strong> recommendations use 20,191 bridges with complete model risk scores and derived 2025 cost estimates. Risk scores are normalized model outputs, not confirmed probabilities. Equity/social impact uses detour burden as a provisional access proxy and does not use demographic data.</div>
 
         <div class="metric-grid" aria-label="Budget summary">
           <div class="metric"><span>Recommended to fix</span><strong id="recommended-count">0</strong></div>
@@ -229,7 +229,7 @@
               <h3>Bridge recommendation details</h3>
               <p>Click an item in the recommendation list to inspect its planned model outputs.</p>
             </div>
-            <div id="bridge-detail" class="detail"><div class="empty-state">Select a bridge to view deterioration probability, predicted cost, priority score, and recommendation reason.</div></div>
+            <div id="bridge-detail" class="detail"><div class="empty-state">Select a bridge to view deterioration risk, predicted cost, priority score, and recommendation reason.</div></div>
           </section>
         </div>
 
@@ -315,16 +315,18 @@
       function fixedFeatures() { return countyFeatures.filter(function (feature) { return fixedBridgeIds.has(String(feature.id)); }); }
       function predictedCost(feature) {
         const recommendation = recommendationFor(feature);
-        return recommendation ? Number(recommendation.predicted_cost) || 0 : 0;
+        if (recommendation) return Number(recommendation.predicted_cost) || 0;
+        return Number((feature.properties || {}).predictedCost) || 0;
       }
       function usedBudget() { return fixedFeatures().reduce(function (sum, feature) { return sum + predictedCost(feature); }, 0); }
       function remainingBudget() { return Math.max(0, activeBudget - usedBudget()); }
       function riskLabel(score) {
         const value = Number(score);
-        if (value >= 0.85) return "Very high";
-        if (value >= 0.7) return "High";
+        if (value >= 0.8) return "Very high";
+        if (value >= 0.6) return "High";
         if (value >= 0.4) return "Moderate";
-        return "Low";
+        if (value >= 0.2) return "Low";
+        return "Very low";
       }
       function recommendationReason(record) {
         if (record && Array.isArray(record.reasons) && record.reasons.length && record.reasons[0].text) return record.reasons[0].text;
@@ -351,7 +353,7 @@
         if (!recommendations.length) {
           const empty = document.createElement("li");
           empty.className = "empty-state";
-          empty.textContent = "No bridges fit the selected budget in the current development dataset.";
+          empty.textContent = "No bridges fit the selected budget and strategy.";
           recommendedList.appendChild(empty);
         }
 
@@ -365,7 +367,10 @@
           const title = document.createElement("strong");
           title.textContent = recordName(record);
           const meta = document.createElement("span");
-          meta.textContent = riskLabel(record.deterioration_risk_score) + " risk " + percent.format(Number(record.deterioration_risk_score) || 0) +
+          const displayedRiskLevel = feature && feature.properties.riskLevel
+            ? feature.properties.riskLevel
+            : riskLabel(record.deterioration_risk_score);
+          meta.textContent = displayedRiskLevel + " risk " + percent.format(Number(record.deterioration_risk_score) || 0) +
             " | " + currency.format(Number(record.predicted_cost) || 0);
           listButton.append(title, meta);
           if (feature) listButton.addEventListener("click", function () { showBridgeDetails(feature); });
@@ -387,7 +392,7 @@
           const fixedName = document.createElement("strong");
           fixedName.textContent = bridgeName(feature);
           const fixedMeta = document.createElement("span");
-          fixedMeta.textContent = "ADT " + integer.format(Number(feature.properties.adt) || 0) + " | " + currency.format(record ? Number(record.predicted_cost) || 0 : 0);
+          fixedMeta.textContent = "ADT " + integer.format(Number(feature.properties.adt) || 0) + " | " + currency.format(predictedCost(feature));
           fixedItem.append(fixedName, fixedMeta);
           fixedList.appendChild(fixedItem);
         });
@@ -411,12 +416,16 @@
         location.textContent = properties.location || activeCounty[1];
         const detailGrid = document.createElement("div");
         detailGrid.className = "detail-grid";
-        const risk = record ? riskLabel(record.deterioration_risk_score) + " (" + percent.format(Number(record.deterioration_risk_score) || 0) + ")" : "Not included in current model data";
+        const riskScore = record ? Number(record.deterioration_risk_score) : Number(properties.riskProbability);
+        const risk = Number.isFinite(riskScore)
+          ? (properties.riskLevel || riskLabel(riskScore)) + " (" + percent.format(riskScore) + ")"
+          : "Not available";
+        const cost = predictedCost(feature);
         const details = [
-          ["Deterioration probability", risk],
-          ["Predicted cost", record ? currency.format(Number(record.predicted_cost) || 0) : "Not available"],
-          ["Priority score", record ? Number(record.priority_score).toFixed(1) : "Not available"],
-          ["Recommendation reason", record ? recommendationReason(record) : "This bridge is not covered by the current mock prediction and cost file."]
+          ["Deterioration risk score", risk],
+          ["Predicted cost", cost > 0 ? currency.format(cost) : "Not available"],
+          ["Priority score", record ? Number(record.priority_score).toFixed(1) : "Not selected"],
+          ["Recommendation reason", record ? recommendationReason(record) : "This bridge was not selected in the recommended portfolio, but its planning cost remains available for manual selection."]
         ];
         details.forEach(function (detail) {
           const item = document.createElement("div");
@@ -458,7 +467,7 @@
       function fixBridge(feature) {
         const id = String(feature.id);
         const cost = predictedCost(feature);
-        if (!recommendationFor(feature) || fixedBridgeIds.has(id) || cost <= 0 || remainingBudget() < cost) return;
+        if (fixedBridgeIds.has(id) || cost <= 0 || remainingBudget() < cost) return;
         fixedBridgeIds.add(id);
         selectedBridgeId = id;
         refreshMapData();
@@ -535,17 +544,19 @@
           name.textContent = bridgeName(original);
           const meta = document.createElement("p");
           meta.className = "popup-meta";
-          meta.textContent = record
-            ? riskLabel(record.deterioration_risk_score) + " risk " + percent.format(Number(record.deterioration_risk_score) || 0) + " | " + currency.format(Number(record.predicted_cost) || 0)
-            : "Not covered by the current development cost file";
+          const mapRiskScore = record ? Number(record.deterioration_risk_score) : Number(properties.riskProbability);
+          const mapRiskLevel = properties.riskLevel || (Number.isFinite(mapRiskScore) ? riskLabel(mapRiskScore) : "Unknown");
+          meta.textContent = mapRiskLevel + " risk " +
+            (Number.isFinite(mapRiskScore) ? percent.format(mapRiskScore) : "not available") +
+            " | " + currency.format(predictedCost(original));
           const fixButton = document.createElement("button");
           fixButton.type = "button";
           fixButton.className = "popup-fix";
           const alreadyFixed = fixedBridgeIds.has(String(original.id));
           const cost = predictedCost(original);
-          const affordable = record && cost > 0 && remainingBudget() >= cost;
+          const affordable = cost > 0 && remainingBudget() >= cost;
           fixButton.disabled = alreadyFixed || !affordable;
-          fixButton.textContent = alreadyFixed ? "Already fixed" : !record ? "Cost unavailable" : affordable ? "Fix - " + currency.format(cost) : "Not enough budget";
+          fixButton.textContent = alreadyFixed ? "Already fixed" : cost <= 0 ? "Cost unavailable" : affordable ? "Fix - " + currency.format(cost) : "Not enough budget";
           fixButton.addEventListener("click", function () { fixBridge(original); });
           content.append(name, meta, fixButton);
           activePopup = new maplibregl.Popup({ offset: 11, className: "budget-popup" }).setLngLat(original.geometry.coordinates).setDOMContent(content).addTo(plannerMap);
@@ -612,7 +623,7 @@
           if (plannerMap && mapReady && plannerMap.getLayer("selected-county-bridge")) {
             plannerMap.setFilter("selected-county-bridge", ["==", ["get", "bridgeId"], ""]);
           }
-          bridgeDetail.innerHTML = '<div class="empty-state">Select a recommended bridge to view deterioration probability, predicted cost, priority score, and recommendation reason.</div>';
+          bridgeDetail.innerHTML = '<div class="empty-state">Select a recommended bridge to view deterioration risk, predicted cost, priority score, and recommendation reason.</div>';
           document.getElementById("scenario-title").textContent = activeCounty[1] + " budget plan";
           document.getElementById("scenario-subtitle").textContent = integer.format(plan.selected_bridges.length) + " recommended from " + integer.format(countyFeatures.length) + " county bridge records";
           document.getElementById("map-title").textContent = activeCounty[1] + " bridges";
@@ -648,13 +659,13 @@
         formStatus.textContent = "Open start-map.bat so the planner can load bridge data.";
         formStatus.className = "form-status error";
       } else {
-        fetch("./Data/pa_bridges_2025_map.geojson?v=20260729-risk")
+        fetch("./Data/pa_bridges_2025_map.geojson?v=20260730-full-model")
           .then(function (response) { if (!response.ok) throw new Error("Data request failed"); return response.json(); })
           .then(function (data) {
             allBridgeData = data;
             calculateButton.disabled = false;
             calculateButton.textContent = "Calculate";
-            formStatus.textContent = "Bridge data ready. For mock recommendations, test Adams County or Cumberland County.";
+            formStatus.textContent = "Full bridge risk and cost data ready for all 67 counties.";
           })
           .catch(function (error) {
             formStatus.textContent = "Bridge data could not be loaded. Start the local server and refresh.";

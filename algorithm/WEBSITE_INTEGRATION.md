@@ -90,7 +90,7 @@ app = FastAPI()
 NBI_PATH = os.getenv("BEN2_NBI", "website/Data/PA 2025.csv")
 PREDICTIONS_PATH = os.getenv(
     "BEN2_PREDICTIONS",
-    "algorithm/generated/combined/combined_model_predictions.csv",
+    "website/Data/combined_model_predictions.csv",
 )
 COUNTIES_PATH = os.getenv("BEN2_COUNTIES", "algorithm/data/pa_counties.csv")
 
@@ -147,9 +147,7 @@ renderBridgeTable(plan.selected_bridges);
 highlightMapBridges(plan.selected_bridge_ids);
 ```
 
-`algorithm/generated/` is intentionally ignored by Git. A teammate cloning the
-repository must either receive the final combined model CSV separately and set
-`BEN2_PREDICTIONS`, or generate it locally using the deterioration and cost
-adapters documented in `README.md`. For interface development only, the mock
-prediction CSV can be used, but it covers 12 bridges and the response clearly
-labels it as development data.
+The packaged production-demo input is
+`website/Data/combined_model_predictions.csv`. It contains 20,191 complete
+risk-and-cost records. `BEN2_PREDICTIONS` can still point to a different combined
+file for later model versions. The 12-row mock remains available only for tests.

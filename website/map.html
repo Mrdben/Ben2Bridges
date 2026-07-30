@@ -476,6 +476,7 @@
     <script>
       const DATASET_YEAR = 2025;
       const numberFormatter = new Intl.NumberFormat("en-US");
+      const currencyFormatter = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
       const searchInput = document.getElementById("bridge-search");
       const conditionFilter = document.getElementById("condition-filter");
       const riskFilter = document.getElementById("risk-filter");
@@ -752,9 +753,13 @@
 
           const details = document.createElement("div");
           details.className = "bridge-popup-details";
-          const probability = Number(properties.riskProbability);
-          const probabilityText = Number.isFinite(probability)
-            ? `${(probability * 100).toFixed(1)}%`
+          const riskScore = Number(properties.riskProbability);
+          const riskScoreText = Number.isFinite(riskScore)
+            ? `${(riskScore * 100).toFixed(1)}%`
+            : "Not listed";
+          const predictedCost = Number(properties.predictedCost);
+          const predictedCostText = Number.isFinite(predictedCost) && predictedCost > 0
+            ? currencyFormatter.format(predictedCost)
             : "Not listed";
           const riskLevel = properties.riskLevel || "Not listed";
           const riskClass = properties.riskLevel
@@ -762,7 +767,8 @@
             : "";
           [
             ["Risk level", riskLevel, riskClass],
-            ["Probability", probabilityText, ""],
+            ["Risk score", riskScoreText, ""],
+            ["Estimated cost", predictedCostText, ""],
             ["Year built", properties.yearBuilt || "Not listed", ""],
             ["Location", properties.location || "Not listed", ""],
             ["Daily traffic", properties.adt ? Number(properties.adt).toLocaleString() + " vehicles" : "Not listed", ""]
@@ -785,7 +791,7 @@
             .addTo(map);
         });
 
-        fetch("./Data/pa_bridges_2025_map.geojson?v=20260729-risk")
+        fetch("./Data/pa_bridges_2025_map.geojson?v=20260730-full-model")
           .then((response) => {
             if (!response.ok) throw new Error("Bridge data request failed: " + response.status);
             return response.json();

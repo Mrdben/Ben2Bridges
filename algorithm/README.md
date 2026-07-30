@@ -97,13 +97,14 @@ From the repository root:
 ```bash
 python algorithm/data_pipeline.py \
   --nbi "website/Data/PA 2025.csv" \
-  --predictions algorithm/data/mock_model_predictions.csv \
+  --predictions website/Data/combined_model_predictions.csv \
   --counties algorithm/data/pa_counties.csv \
   --output /tmp/ben2bridges_algorithm_input.csv
 ```
 
-The command prints a JSON validation report. The current mock file covers only
-12 real bridge IDs, so it is suitable for development but not final analysis.
+The command prints a JSON validation report. The packaged combined file contains
+20,191 unique bridge predictions with derived 2025 planning costs and covers
+86.6046% of the 2025 Pennsylvania NBI inventory.
 
 Run the tests with:
 
@@ -156,7 +157,7 @@ The unified command runs all three stages and writes strict JSON:
 ```bash
 python algorithm/recommendation.py \
   --nbi "website/Data/PA 2025.csv" \
-  --predictions algorithm/data/mock_model_predictions.csv \
+  --predictions website/Data/combined_model_predictions.csv \
   --counties algorithm/data/pa_counties.csv \
   --budget 10000000 \
   --strategy balanced \
@@ -164,8 +165,5 @@ python algorithm/recommendation.py \
 ```
 
 Optional `--county-fips` and `--district` filters are mutually exclusive. The
-mock predictions trigger a development-data warning in the JSON response.
-For a real combined file, replace the mock path with
-`algorithm/generated/combined/combined_model_predictions.csv`. Current risk
-scores and derived costs remain provisional inputs and must be labeled as such
-in the website and presentation.
+packaged risk scores and derived costs remain provisional planning inputs and
+must be labeled as such in the website and presentation.

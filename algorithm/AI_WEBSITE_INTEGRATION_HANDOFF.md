@@ -50,21 +50,19 @@ Configure these server-side; never ask the browser to supply file paths:
 
 ```text
 NBI:         website/Data/PA 2025.csv
-Predictions: algorithm/generated/combined/combined_model_predictions.csv
+Predictions: website/Data/combined_model_predictions.csv
 Counties:    algorithm/data/pa_counties.csv
 ```
 
-Important: `algorithm/generated/` is intentionally ignored by Git. The full
-combined model CSV must be transferred separately to the machine running the
-API or generated locally with the adapters described in `algorithm/README.md`.
-
-For UI development only, this committed mock file can be used:
+The full combined model CSV is now committed with the website and contains
+20,191 complete risk-and-cost records. For isolated tests only, this mock file
+can still be used:
 
 ```text
 algorithm/data/mock_model_predictions.csv
 ```
 
-It covers only 12 bridges and must not be used for the final full-state demo.
+It covers only 12 bridges and must not be used for the full-state demo.
 
 Prefer environment variables for deployment:
 

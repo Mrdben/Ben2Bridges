@@ -10,7 +10,7 @@ from pathlib import Path
 
 WEBSITE_DIR = Path(__file__).resolve().parents[1]
 INPUT_PATH = WEBSITE_DIR / "Data" / "PA 2025.csv"
-RISK_INPUT_PATH = WEBSITE_DIR / "Data" / "riskrank.csv"
+MODEL_INPUT_PATH = WEBSITE_DIR / "Data" / "combined_model_predictions.csv"
 OUTPUT_PATH = WEBSITE_DIR / "Data" / "pa_bridges_2025.geojson"
 MAP_OUTPUT_PATH = WEBSITE_DIR / "Data" / "pa_bridges_2025_map.geojson"
 
@@ -38,12 +38,17 @@ REQUIRED_COLUMNS = {
     "LOWEST_RATING",
 }
 
-REQUIRED_RISK_COLUMNS = {
-    "STRUCTURE_NUMBER_008",
-    "MODEL_DETERIORATION_RISK_SCORE",
-    "RISK_RANK",
-    "RISK_PERCENTILE",
-    "RISK_GROUP",
+REQUIRED_MODEL_COLUMNS = {
+    "bridge_id",
+    "deterioration_risk_score",
+    "predicted_cost",
+    "cost_lower_80",
+    "cost_upper_80",
+    "cost_source_component",
+    "cost_is_derived",
+    "source_risk_rank",
+    "risk_percentile",
+    "risk_group",
 }
 
 
@@ -106,47 +111,65 @@ def inspection_date_code(value: str | None) -> str | None:
     return cleaned.zfill(4)
 
 
-def load_risk_data() -> dict[str, dict[str, object]]:
-    risk_by_id: dict[str, dict[str, object]] = {}
+def load_model_data() -> dict[str, dict[str, object]]:
+    model_by_id: dict[str, dict[str, object]] = {}
 
-    with RISK_INPUT_PATH.open("r", encoding="utf-8-sig", newline="") as source:
+    with MODEL_INPUT_PATH.open("r", encoding="utf-8-sig", newline="") as source:
         reader = csv.DictReader(source)
-        missing_columns = REQUIRED_RISK_COLUMNS.difference(reader.fieldnames or [])
+        missing_columns = REQUIRED_MODEL_COLUMNS.difference(reader.fieldnames or [])
         if missing_columns:
             missing = ", ".join(sorted(missing_columns))
-            raise ValueError(f"Risk CSV is missing required columns: {missing}")
+            raise ValueError(f"Combined model CSV is missing required columns: {missing}")
 
         for row_number, row in enumerate(reader, start=2):
-            bridge_id = clean_text(row["STRUCTURE_NUMBER_008"])
+            bridge_id = clean_text(row["bridge_id"])
             if bridge_id is None:
-                raise ValueError(f"Missing bridge ID on risk CSV row {row_number}")
-            if bridge_id in risk_by_id:
+                raise ValueError(f"Missing bridge ID on model CSV row {row_number}")
+            if bridge_id in model_by_id:
                 raise ValueError(
-                    f"Duplicate bridge ID {bridge_id!r} on risk CSV row {row_number}"
+                    f"Duplicate bridge ID {bridge_id!r} on model CSV row {row_number}"
                 )
 
-            probability = parse_number(row["MODEL_DETERIORATION_RISK_SCORE"])
-            risk_level = clean_text(row["RISK_GROUP"])
-            if probability is None or not 0 <= probability <= 1:
+            risk_score = parse_number(row["deterioration_risk_score"])
+            risk_level = clean_text(row["risk_group"])
+            predicted_cost = parse_number(row["predicted_cost"])
+            cost_lower = parse_number(row["cost_lower_80"])
+            cost_upper = parse_number(row["cost_upper_80"])
+            if risk_score is None or not 0 <= risk_score <= 1:
                 raise ValueError(
-                    f"Invalid deterioration probability for bridge {bridge_id!r}: "
-                    f"{row['MODEL_DETERIORATION_RISK_SCORE']!r}"
+                    f"Invalid deterioration risk score for bridge {bridge_id!r}: "
+                    f"{row['deterioration_risk_score']!r}"
                 )
             if risk_level is None:
                 raise ValueError(f"Missing risk group for bridge {bridge_id!r}")
+            if predicted_cost is None or predicted_cost <= 0:
+                raise ValueError(f"Invalid predicted cost for bridge {bridge_id!r}")
+            if (
+                cost_lower is None
+                or cost_upper is None
+                or cost_lower <= 0
+                or cost_upper < predicted_cost
+                or cost_lower > predicted_cost
+            ):
+                raise ValueError(f"Invalid cost interval for bridge {bridge_id!r}")
 
-            risk_by_id[bridge_id] = {
-                "riskProbability": probability,
+            model_by_id[bridge_id] = {
+                "riskProbability": risk_score,
                 "riskLevel": risk_level,
-                "riskRank": parse_number(row["RISK_RANK"], integer=True),
-                "riskPercentile": parse_number(row["RISK_PERCENTILE"]),
+                "riskRank": parse_number(row["source_risk_rank"], integer=True),
+                "riskPercentile": parse_number(row["risk_percentile"]),
+                "predictedCost": predicted_cost,
+                "costLower80": cost_lower,
+                "costUpper80": cost_upper,
+                "costSourceComponent": clean_text(row["cost_source_component"]),
+                "costIsDerived": clean_text(row["cost_is_derived"]) == "True",
             }
 
-    return risk_by_id
+    return model_by_id
 
 
 def convert() -> dict[str, object]:
-    risk_by_id = load_risk_data()
+    model_by_id = load_model_data()
     features: list[dict[str, object]] = []
     seen_ids: set[str] = set()
     matched_ids: set[str] = set()
@@ -170,8 +193,8 @@ def convert() -> dict[str, object]:
                 raise ValueError(f"Duplicate bridge ID {bridge_id!r} on CSV row {row_number}")
             seen_ids.add(bridge_id)
 
-            risk = risk_by_id.get(bridge_id)
-            if risk is None:
+            model = model_by_id.get(bridge_id)
+            if model is None:
                 continue
             matched_ids.add(bridge_id)
 
@@ -208,7 +231,7 @@ def convert() -> dict[str, object]:
                 "structureType": parse_number(row["STRUCTURE_TYPE_043B"], integer=True),
                 "deckArea": parse_number(row["DECK_AREA"]),
                 "inspectionDate": inspection_date_code(row["DATE_OF_INSPECT_090"]),
-                **risk,
+                **model,
             }
 
             features.append(
@@ -233,12 +256,12 @@ def convert() -> dict[str, object]:
             round(max_lat, 6),
         ],
         "metadata": {
-            "sources": [INPUT_PATH.name, RISK_INPUT_PATH.name],
+            "sources": [INPUT_PATH.name, MODEL_INPUT_PATH.name],
             "featureCount": len(features),
             "inventoryFeatureCount": len(seen_ids),
-            "riskFeatureCount": len(risk_by_id),
+            "modelFeatureCount": len(model_by_id),
             "uncoveredInventoryCount": len(seen_ids) - len(matched_ids),
-            "unmatchedRiskCount": len(risk_by_id) - len(matched_ids),
+            "unmatchedModelCount": len(model_by_id) - len(matched_ids),
             "joinKey": "Feature.id corresponds to STRUCTURE_NUMBER_008",
             "coordinatePrecision": 6,
         },
@@ -279,6 +302,11 @@ def convert() -> dict[str, object]:
                         "deckArea",
                         "riskProbability",
                         "riskLevel",
+                        "predictedCost",
+                        "costLower80",
+                        "costUpper80",
+                        "costSourceComponent",
+                        "costIsDerived",
                     )
                 },
             }
