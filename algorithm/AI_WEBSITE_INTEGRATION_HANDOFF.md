@@ -100,7 +100,7 @@ Request body:
 Rules:
 
 - `budget` must be positive;
-- `strategy` is `balanced`, `safety`, or `traffic`;
+- `strategy` is `balanced`, `safety`, `traffic`, or `equity`;
 - `county_fips` and `district` are optional but mutually exclusive;
 - bridge IDs and county FIPS codes must remain strings so leading zeros are
   preserved;

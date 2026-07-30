@@ -65,6 +65,7 @@ neither rewarded nor penalized solely because data are unavailable.
 | Balanced | 45% | 25% | 25% | 5% |
 | Safety | 55% | 25% | 10% | 10% |
 | Traffic | 25% | 10% | 50% | 15% |
+| Equity/social impact | 30% | 20% | 10% | 40% |
 
 Balanced is the official-informed robust compromise selected from 76 bounded
 candidates. Candidate performance was compared at the top 5%, 10%, and 20% of
@@ -73,9 +74,12 @@ high-risk coverage, Poor-condition coverage, and perturbation stability. The
 selection rule maximized the weakest relative performance across those four
 targets; it did not fit incomplete historical repair records as ground truth.
 
-Safety and Traffic remain transparent provisional policy assumptions. The
-website can expose all three named profiles without requiring users to enter
-four coefficients.
+Safety, Traffic, and Equity/social impact remain transparent provisional policy
+assumptions. The website can expose all four named profiles without requiring
+users to enter four coefficients. The Equity/social-impact profile treats detour
+burden as a proxy for community access because the current inputs contain no
+demographic or social-vulnerability data; it must not be presented as a complete
+equity analysis.
 
 The Balanced weights are not government-approved or universally optimal. They
 are best described as `official-informed calibrated` under the project's data,

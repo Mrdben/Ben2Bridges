@@ -1,7 +1,7 @@
 """Normalize decision indicators and calculate bridge priority scores.
 
 Balanced uses official-informed robust weights selected from a bounded search.
-Safety and Traffic remain transparent provisional policy profiles.
+Safety, Traffic, and Equity/social-impact remain transparent provisional policy profiles.
 """
 
 from __future__ import annotations
@@ -70,16 +70,23 @@ SCORING_PROFILES: dict[str, ScoreWeights] = {
         traffic=0.50,
         detour=0.15,
     ),
+    "equity": ScoreWeights(
+        deterioration=0.30,
+        condition=0.20,
+        traffic=0.10,
+        detour=0.40,
+    ),
 }
 
 # Kept as a compatibility alias for existing integrations.  The mapping now
-# contains one calibrated default plus two provisional profiles.
+# contains one calibrated default plus three provisional profiles.
 PROVISIONAL_PROFILES = SCORING_PROFILES
 
 PROFILE_WEIGHT_STATUS = {
     "balanced": "official_informed_calibrated",
     "safety": "provisional_policy_profile",
     "traffic": "provisional_policy_profile",
+    "equity": "provisional_policy_profile",
 }
 
 

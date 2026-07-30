@@ -205,7 +205,7 @@
           </div>
         </div>
 
-        <div class="algorithm-note"><strong>Development data:</strong> the live algorithm is connected, but its current mock prediction and cost file covers 11 bridges in Adams County and one bridge in Cumberland County. Prioritization methods remain display-only for now.</div>
+        <div class="algorithm-note"><strong>Development data:</strong> the live algorithm is connected, but its current mock prediction and cost file covers 11 bridges in Adams County and one bridge in Cumberland County. Each method now applies its own scoring weights. Equity/social impact uses detour burden as a provisional access proxy; it does not use demographic data.</div>
 
         <div class="metric-grid" aria-label="Budget summary">
           <div class="metric"><span>Recommended to fix</span><strong id="recommended-count">0</strong></div>
@@ -254,6 +254,12 @@
     <script>
       const API_URL = "https://ben2bridges-api.onrender.com/api/recommend";
       const METHODS = ["Balanced", "Safety/condition focused", "Traffic focused", "Equity/social-impact focused"];
+      const METHOD_STRATEGIES = {
+        "Balanced": "balanced",
+        "Safety/condition focused": "safety",
+        "Traffic focused": "traffic",
+        "Equity/social-impact focused": "equity"
+      };
       const COUNTIES = [
         ["001", "Adams County"], ["003", "Allegheny County"], ["005", "Armstrong County"], ["007", "Beaver County"], ["009", "Bedford County"], ["011", "Berks County"], ["013", "Blair County"], ["015", "Bradford County"], ["017", "Bucks County"], ["019", "Butler County"], ["021", "Cambria County"], ["023", "Cameron County"], ["025", "Carbon County"], ["027", "Centre County"], ["029", "Chester County"], ["031", "Clarion County"], ["033", "Clearfield County"], ["035", "Clinton County"], ["037", "Columbia County"], ["039", "Crawford County"], ["041", "Cumberland County"], ["043", "Dauphin County"], ["045", "Delaware County"], ["047", "Elk County"], ["049", "Erie County"], ["051", "Fayette County"], ["053", "Forest County"], ["055", "Franklin County"], ["057", "Fulton County"], ["059", "Greene County"], ["061", "Huntingdon County"], ["063", "Indiana County"], ["065", "Jefferson County"], ["067", "Juniata County"], ["069", "Lackawanna County"], ["071", "Lancaster County"], ["073", "Lawrence County"], ["075", "Lebanon County"], ["077", "Lehigh County"], ["079", "Luzerne County"], ["081", "Lycoming County"], ["083", "McKean County"], ["085", "Mercer County"], ["087", "Mifflin County"], ["089", "Monroe County"], ["091", "Montgomery County"], ["093", "Montour County"], ["095", "Northampton County"], ["097", "Northumberland County"], ["099", "Perry County"], ["101", "Philadelphia County"], ["103", "Pike County"], ["105", "Potter County"], ["107", "Schuylkill County"], ["109", "Snyder County"], ["111", "Somerset County"], ["113", "Sullivan County"], ["115", "Susquehanna County"], ["117", "Tioga County"], ["119", "Union County"], ["121", "Venango County"], ["123", "Warren County"], ["125", "Washington County"], ["127", "Wayne County"], ["129", "Westmoreland County"], ["131", "Wyoming County"], ["133", "York County"]
       ];
@@ -555,7 +561,7 @@
           const response = await fetch(API_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ budget: activeBudget, county_fips: activeCounty[0], strategy: "balanced" }),
+            body: JSON.stringify({ budget: activeBudget, county_fips: activeCounty[0], strategy: METHOD_STRATEGIES[activeMethod] }),
             signal: controller.signal
           });
           const payload = await response.json().catch(function () { return {}; });
@@ -620,7 +626,7 @@
             refreshMapData();
             fitCounty();
           }
-          formStatus.textContent = "Plan ready. " + plan.selected_bridges.length + " bridge" + (plan.selected_bridges.length === 1 ? "" : "s") + " recommended. The method selection is display-only and currently uses the balanced strategy.";
+          formStatus.textContent = "Plan ready. " + plan.selected_bridges.length + " bridge" + (plan.selected_bridges.length === 1 ? "" : "s") + " recommended using " + activeMethod.toLowerCase() + ".";
           formStatus.className = "form-status";
           window.setTimeout(function () { results.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
         } catch (error) {

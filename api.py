@@ -59,7 +59,7 @@ app.add_middleware(
 
 class RecommendRequest(BaseModel):
     budget: float = Field(gt=0)
-    strategy: Literal["balanced", "safety", "traffic"] = "balanced"
+    strategy: Literal["balanced", "safety", "traffic", "equity"] = "balanced"
     county_fips: str | None = None
     district: int | None = None
 

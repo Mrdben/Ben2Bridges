@@ -9,7 +9,7 @@ optimization.
 The interactive form needs only:
 
 - budget;
-- strategy: `balanced`, `safety`, or `traffic`;
+- strategy: `balanced`, `safety`, `traffic`, or `equity`;
 - region: statewide, one county FIPS code, or one PennDOT district.
 
 The NBI, county, and model-prediction file paths are server configuration, not
@@ -55,7 +55,7 @@ top reasons, whether it was priority-protected, and a selection explanation.
 
 The current group website is static HTML and JavaScript. It cannot safely run
 the Python optimizer in the browser. The next integration step should add a
-small Python API endpoint such as `POST /api/recommend`, with the three form
+small Python API endpoint such as `POST /api/recommend`, with the four form
 choices in the request body. The endpoint calls `generate_recommendation` and
 returns its dictionary. The existing JavaScript can then use `fetch()` to:
 
@@ -97,7 +97,7 @@ COUNTIES_PATH = os.getenv("BEN2_COUNTIES", "algorithm/data/pa_counties.csv")
 
 class RecommendRequest(BaseModel):
     budget: float = Field(gt=0)
-    strategy: Literal["balanced", "safety", "traffic"] = "balanced"
+    strategy: Literal["balanced", "safety", "traffic", "equity"] = "balanced"
     county_fips: str | None = None
     district: int | None = None
 

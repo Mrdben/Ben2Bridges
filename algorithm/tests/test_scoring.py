@@ -64,6 +64,33 @@ class ScoringTests(unittest.TestCase):
         self.assertEqual(safety_report.weight_status, "provisional_policy_profile")
         self.assertTrue(safety_report.provisional_weights)
 
+    def test_equity_profile_prioritizes_detour_burden(self) -> None:
+        frame = pd.DataFrame(
+            {
+                "bridge_id": ["HIGH_DETOUR", "HIGH_TRAFFIC"],
+                "deterioration_risk_score": [0.5, 0.5],
+                "lowest_rating": [5, 5],
+                "adt": [100, 100000],
+                "detour_km": [100, 1],
+                "predicted_cost": [1_000_000, 1_000_000],
+            }
+        )
+
+        equity, report = score_bridges(frame, strategy="equity")
+
+        self.assertEqual(equity.loc[0, "bridge_id"], "HIGH_DETOUR")
+        self.assertEqual(
+            report.weights,
+            {
+                "deterioration": 0.30,
+                "condition": 0.20,
+                "traffic": 0.10,
+                "detour": 0.40,
+            },
+        )
+        self.assertEqual(report.weight_status, "provisional_policy_profile")
+        self.assertTrue(report.provisional_weights)
+
     def test_cost_does_not_change_priority_score(self) -> None:
         frame = pd.DataFrame(
             {

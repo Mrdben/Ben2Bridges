@@ -302,7 +302,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--strategy",
         default="balanced",
-        choices=("balanced", "safety", "traffic"),
+        choices=("balanced", "safety", "traffic", "equity"),
     )
     region = parser.add_mutually_exclusive_group()
     region.add_argument("--county-fips")

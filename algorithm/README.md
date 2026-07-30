@@ -122,10 +122,11 @@ python algorithm/scoring.py \
   --output /tmp/ben2bridges_scored.csv
 ```
 
-Available strategies are `balanced`, `safety`, and `traffic`. Balanced uses the
-official-informed calibrated weights `45/25/25/5`. Safety and Traffic remain
-provisional policy profiles. None is a government-approved or universally
-optimal funding policy.
+Available strategies are `balanced`, `safety`, `traffic`, and `equity`. Balanced
+uses the official-informed calibrated weights `45/25/25/5`. Safety, Traffic, and
+Equity/social impact remain provisional policy profiles. Equity uses detour burden
+as a community-access proxy and does not include demographic data. None is a
+government-approved or universally optimal funding policy.
 
 ## Allocate a budget
 
