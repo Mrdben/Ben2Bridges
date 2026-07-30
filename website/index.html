@@ -54,8 +54,7 @@
         letter-spacing: -0.02em;
       }
 
-      .brand-icon,
-      .icon-placeholder {
+      .brand-icon {
         display: grid;
         place-items: center;
         border: 1px solid rgb(255 255 255 / 24%);
@@ -73,8 +72,7 @@
         background: #ffffff;
       }
 
-      .brand-icon img,
-      .icon-placeholder img {
+      .brand-icon img {
         display: block;
         width: 100%;
         height: 100%;
@@ -258,45 +256,26 @@
       .feature-card h3 { margin: 0 0 9px; color: var(--navy); font-size: 1.05rem; }
       .feature-card p { margin: 0; color: var(--muted); font-size: 0.84rem; line-height: 1.65; }
 
-      .story-band { color: #ffffff; background: var(--navy); }
-      .story-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; align-items: center; gap: 44px; }
-      .icon-placeholder { width: min(330px, 100%); aspect-ratio: 1; overflow: hidden; border-radius: 34px; background: #ffffff; }
-      .story-copy h2 { color: #ffffff; }
-      .story-copy p { color: #cbd5e1; line-height: 1.75; }
-      .story-copy .kicker { color: #93c5fd; }
-      .team-members { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin: 26px 0 0; padding: 0; list-style: none; }
-      .team-members li { border-top: 1px solid rgb(255 255 255 / 16%); padding-top: 12px; color: #ffffff; font-size: 0.88rem; font-weight: 700; }
-      .team-members small { display: block; margin-top: 4px; color: #94a3b8; font-size: 0.74rem; font-weight: 500; line-height: 1.45; }
-
-      .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-      .step { position: relative; padding: 20px 0; border-top: 2px solid var(--line); }
-      .step::before { position: absolute; top: -6px; left: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); content: ""; }
-      .step strong { display: block; margin-bottom: 8px; color: var(--navy); }
-      .step p { margin: 0; color: var(--muted); font-size: 0.83rem; line-height: 1.65; }
-      .model-note { margin-top: 26px; border: 1px dashed #93c5fd; border-radius: 16px; padding: 22px 24px; background: #eff6ff; }
-      .model-note strong { display: block; margin-bottom: 7px; color: var(--navy); }
-      .model-note p { margin: 0; color: var(--muted); font-size: 0.86rem; line-height: 1.65; }
-
       .cta { padding-top: 18px; }
       .cta-card { display: flex; align-items: center; justify-content: space-between; gap: 30px; border-radius: 22px; padding: 48px; color: #ffffff; background: linear-gradient(120deg, #1d4ed8, #2563eb 55%, #3b82f6); box-shadow: 0 25px 60px rgb(37 99 235 / 24%); }
       .cta-card h2 { max-width: 660px; margin: 0; color: #ffffff; }
       .cta-card .button { flex: 0 0 auto; color: var(--blue-dark); background: #ffffff; }
 
-      footer { margin-top: 34px; border-top: 1px solid var(--line); padding: 20px; color: var(--muted); background: #ffffff; text-align: center; font-size: 0.76rem; }
+      footer { margin-top: 34px; border-top: 1px solid var(--line); padding: 24px 20px 28px; color: var(--muted); background: #ffffff; text-align: center; font-size: 0.76rem; }
+      .footer-team { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; margin-top: 12px; color: var(--navy); font-size: 0.82rem; }
+      .footer-team strong { font-weight: 700; }
 
       .hero-copy { animation: hero-in 700ms ease-out both; }
       .hero-visual { animation: hero-in 800ms 120ms ease-out both; }
       @keyframes hero-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 860px) {
         .nav-links a:not(.nav-button) { display: none; }
-        .hero-grid, .story-grid { grid-template-columns: 1fr; }
+        .hero-grid { grid-template-columns: 1fr; }
         .hero-grid { gap: 20px; min-height: auto; padding: 46px 0 54px; }
         .hero-visual { min-height: 320px; }
-        .feature-grid, .steps, .team-members { grid-template-columns: 1fr; }
+        .feature-grid { grid-template-columns: 1fr; }
         .stats { grid-template-columns: 1fr; }
         .stat + .stat { border-top: 1px solid var(--line); border-left: 0; }
-        .story-grid { gap: 48px; }
-        .icon-placeholder { margin: 0 auto; }
         .cta-card { align-items: flex-start; flex-direction: column; }
       }
 
@@ -324,9 +303,6 @@
           <span>Ben&sup2; Bridges</span>
         </a>
         <div class="nav-links">
-          <a href="#purpose">Purpose</a>
-          <a href="#team">Team</a>
-          <a href="#approach">Technical approach</a>
           <a class="nav-button" href="./budget.html?v=20260728-2">Budget planner</a>
           <a class="nav-button" href="./map.html">Open map</a>
         </div>
@@ -377,42 +353,6 @@
         </div>
       </section>
 
-      <section id="team" class="story-band">
-        <div class="section story-grid">
-          <div class="icon-placeholder">
-            <img src="./logo.png" alt="Ben² Bridges project logo">
-          </div>
-          <div class="story-copy">
-            <p class="kicker">Our team</p>
-            <h2>Four collaborators, one shared prototype.</h2>
-            <p>Our responsibilities overlap so the project can keep moving if one person becomes blocked. Each team member leads a primary area while supporting testing, review, documentation, and the final demonstration.</p>
-            <ul class="team-members">
-              <li>Aarav Sekhri<small>Data collection, cleaning, machine learning, and model evaluation</small></li>
-              <li>Aviral Jain<small>Data collection, cleaning, machine learning, and model evaluation</small></li>
-              <li>Benjamin Yang<small>Risk scoring, budget allocation, dashboard, and visualizations</small></li>
-              <li>Benjamin Zhang<small>Risk scoring, budget allocation, dashboard, and visualizations</small></li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section id="approach" class="section">
-        <div class="section-heading">
-          <p class="kicker">Technical approach</p>
-          <h2>From historical inspections to maintenance priorities.</h2>
-          <p>This section records the planned approach from the proposal. Final model choices, features, evaluation results, and scoring formulas can be added here once that work is complete.</p>
-        </div>
-        <div class="steps">
-          <article class="step"><strong>1. Prepare historical data</strong><p>Clean Pennsylvania National Bridge Inventory records, identify important fields, and match bridges across years using consistent identifiers.</p></article>
-          <article class="step"><strong>2. Model deterioration</strong><p>Create a deterioration target, engineer features, and compare logistic regression with tree-based models using a time-based split.</p></article>
-          <article class="step"><strong>3. Allocate the budget</strong><p>Combine predicted deterioration, current condition, traffic, detour impact, and estimated cost into a priority score and budget-constrained selection.</p></article>
-        </div>
-        <div class="model-note">
-          <strong>Model and methodology details - to be completed</strong>
-          <p>Reserve this area for the selected model, final feature set, deterioration definition, calibration, precision and recall, top-risk bridge evaluation, scoring formula, cost assumptions, and comparison results at several budget levels.</p>
-        </div>
-      </section>
-
       <section class="section cta">
         <div class="cta-card">
           <h2>Explore Pennsylvania's bridges in the current prototype.</h2>
@@ -421,6 +361,14 @@
       </section>
     </main>
 
-    <footer>Ben&sup2; Bridges | Aarav Sekhri, Aviral Jain, Benjamin Yang, and Benjamin Zhang | 2026</footer>
+    <footer>
+      <span>Ben&sup2; Bridges &middot; 2026</span>
+      <div class="footer-team" aria-label="Project team">
+        <strong>Aarav Sekhri</strong>
+        <strong>Aviral Jain</strong>
+        <strong>Benjamin Yang</strong>
+        <strong>Benjamin Zhang</strong>
+      </div>
+    </footer>
 </body>
 </html>
