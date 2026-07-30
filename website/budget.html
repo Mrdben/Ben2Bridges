@@ -168,12 +168,12 @@
         <div class="hero-inner">
           <p class="eyebrow">Prototype maintenance scenario</p>
           <h1>Plan your bridge budget.</h1>
-          <p class="hero-intro">Choose a budget, Pennsylvania county, and future prioritization method. The map and manual budget controls work now; the recommendation algorithm and prediction fields remain ready for your team to connect.</p>
+          <p class="hero-intro">Choose a budget, Pennsylvania county, and prioritization method to generate a bridge-repair portfolio from the live recommendation service.</p>
 
           <form id="planner-form" class="planner-form">
             <div class="field">
               <label for="budget-input">Available budget</label>
-              <input id="budget-input" type="number" min="0" step="1000" value="10000" inputmode="decimal" required>
+              <input id="budget-input" type="number" min="1" step="1" value="5000000" inputmode="decimal" required>
             </div>
             <div class="field">
               <label for="county-input">Area (county)</label>
@@ -205,7 +205,7 @@
           </div>
         </div>
 
-        <div class="algorithm-note"><strong>Recommendation algorithm not connected:</strong> bridge predictions and automatic rankings are intentionally blank. Click bridge dots and use <strong>Fix</strong> to test county filtering and budget behavior at a temporary cost of $1,000 per bridge.</div>
+        <div class="algorithm-note"><strong>Development data:</strong> the live algorithm is connected, but its current mock prediction and cost file covers 11 bridges in Adams County and one bridge in Cumberland County. Prioritization methods remain display-only for now.</div>
 
         <div class="metric-grid" aria-label="Budget summary">
           <div class="metric"><span>Recommended to fix</span><strong id="recommended-count">0</strong></div>
@@ -219,9 +219,9 @@
           <section class="panel" aria-label="Recommended bridge list">
             <div class="panel-header">
               <h3>Recommended bridge list</h3>
-              <p>All bridges in the selected county are temporarily listed until the ranking algorithm is added.</p>
+              <p>Bridges selected by the live budget-constrained recommendation algorithm.</p>
             </div>
-            <ul id="recommended-list" class="bridge-list"><li class="empty-state">No bridges selected. Choose a bridge from the county map and click Fix.</li></ul>
+            <ul id="recommended-list" class="bridge-list"><li class="empty-state">Run a calculation to view recommended bridges.</li></ul>
           </section>
 
           <section class="panel" aria-label="Selected bridge details">
@@ -242,7 +242,7 @@
           <aside class="panel fixed-panel" aria-label="Fixed bridges">
             <div class="panel-header">
               <h3>Fixed bridges</h3>
-              <p>Each manual selection currently uses $1,000 of the available budget.</p>
+              <p>Confirm recommended bridges from the map using their predicted repair costs.</p>
             </div>
             <ul id="fixed-list" class="fixed-list"><li class="empty-state">No bridges fixed yet.</li></ul>
           </aside>
@@ -252,7 +252,7 @@
 
     <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
     <script>
-      const PROTOTYPE_COST = 1000;
+      const API_URL = "https://ben2bridges-api.onrender.com/api/recommend";
       const METHODS = ["Balanced", "Safety/condition focused", "Traffic focused", "Equity/social-impact focused"];
       const COUNTIES = [
         ["001", "Adams County"], ["003", "Allegheny County"], ["005", "Armstrong County"], ["007", "Beaver County"], ["009", "Bedford County"], ["011", "Berks County"], ["013", "Blair County"], ["015", "Bradford County"], ["017", "Bucks County"], ["019", "Butler County"], ["021", "Cambria County"], ["023", "Cameron County"], ["025", "Carbon County"], ["027", "Centre County"], ["029", "Chester County"], ["031", "Clarion County"], ["033", "Clearfield County"], ["035", "Clinton County"], ["037", "Columbia County"], ["039", "Crawford County"], ["041", "Cumberland County"], ["043", "Dauphin County"], ["045", "Delaware County"], ["047", "Elk County"], ["049", "Erie County"], ["051", "Fayette County"], ["053", "Forest County"], ["055", "Franklin County"], ["057", "Fulton County"], ["059", "Greene County"], ["061", "Huntingdon County"], ["063", "Indiana County"], ["065", "Jefferson County"], ["067", "Juniata County"], ["069", "Lackawanna County"], ["071", "Lancaster County"], ["073", "Lawrence County"], ["075", "Lebanon County"], ["077", "Lehigh County"], ["079", "Luzerne County"], ["081", "Lycoming County"], ["083", "McKean County"], ["085", "Mercer County"], ["087", "Mifflin County"], ["089", "Monroe County"], ["091", "Montgomery County"], ["093", "Montour County"], ["095", "Northampton County"], ["097", "Northumberland County"], ["099", "Perry County"], ["101", "Philadelphia County"], ["103", "Pike County"], ["105", "Potter County"], ["107", "Schuylkill County"], ["109", "Snyder County"], ["111", "Somerset County"], ["113", "Sullivan County"], ["115", "Susquehanna County"], ["117", "Tioga County"], ["119", "Union County"], ["121", "Venango County"], ["123", "Warren County"], ["125", "Washington County"], ["127", "Wayne County"], ["129", "Westmoreland County"], ["131", "Wyoming County"], ["133", "York County"]
@@ -260,6 +260,7 @@
 
       const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
       const integer = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+      const percent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 0 });
       const plannerForm = document.getElementById("planner-form");
       const budgetInput = document.getElementById("budget-input");
       const countyInput = document.getElementById("county-input");
@@ -273,6 +274,8 @@
 
       let allBridgeData = null;
       let countyFeatures = [];
+      let recommendationPlan = null;
+      let recommendationById = new Map();
       let fixedBridgeIds = new Set();
       let selectedBridgeId = null;
       let activeBudget = 0;
@@ -297,39 +300,69 @@
         if (properties.facility && properties.featureCrossed) return properties.facility + " over " + properties.featureCrossed;
         return properties.facility || properties.featureCrossed || "Bridge " + feature.id;
       }
+      function recordName(record) {
+        if (record.facility_carried && record.feature_crossed) return record.facility_carried + " over " + record.feature_crossed;
+        return record.facility_carried || record.feature_crossed || "Bridge " + record.bridge_id;
+      }
       function findCountyBridge(id) { return countyFeatures.find(function (feature) { return String(feature.id) === String(id); }); }
-      function selectedFeatures() { return countyFeatures.filter(function (feature) { return fixedBridgeIds.has(String(feature.id)); }); }
-      function remainingBudget() { return Math.max(0, activeBudget - fixedBridgeIds.size * PROTOTYPE_COST); }
+      function recommendationFor(feature) { return recommendationById.get(String(feature.id)); }
+      function fixedFeatures() { return countyFeatures.filter(function (feature) { return fixedBridgeIds.has(String(feature.id)); }); }
+      function predictedCost(feature) {
+        const recommendation = recommendationFor(feature);
+        return recommendation ? Number(recommendation.predicted_cost) || 0 : 0;
+      }
+      function usedBudget() { return fixedFeatures().reduce(function (sum, feature) { return sum + predictedCost(feature); }, 0); }
+      function remainingBudget() { return Math.max(0, activeBudget - usedBudget()); }
+      function riskLabel(score) {
+        const value = Number(score);
+        if (value >= 0.85) return "Very high";
+        if (value >= 0.7) return "High";
+        if (value >= 0.4) return "Moderate";
+        return "Low";
+      }
+      function recommendationReason(record) {
+        if (record && Array.isArray(record.reasons) && record.reasons.length && record.reasons[0].text) return record.reasons[0].text;
+        return record && record.selection_explanation ? record.selection_explanation : "No recommendation explanation is available.";
+      }
 
       function updateMetrics() {
-        const fixed = selectedFeatures();
-        const used = fixed.length * PROTOTYPE_COST;
+        const fixed = fixedFeatures();
         const traffic = fixed.reduce(function (sum, feature) { return sum + (Number(feature.properties.adt) || 0); }, 0);
-        document.getElementById("recommended-count").textContent = integer.format(countyFeatures.length);
+        const recommendedCount = recommendationPlan ? recommendationPlan.selected_bridges.length : 0;
+        document.getElementById("recommended-count").textContent = integer.format(recommendedCount);
         document.getElementById("total-budget").textContent = currency.format(activeBudget);
-        document.getElementById("used-budget").textContent = currency.format(used);
-        document.getElementById("budget-left").textContent = currency.format(Math.max(0, activeBudget - used));
+        document.getElementById("used-budget").textContent = currency.format(usedBudget());
+        document.getElementById("budget-left").textContent = currency.format(remainingBudget());
         document.getElementById("traffic-covered").textContent = integer.format(traffic);
       }
 
       function renderLists() {
-        const fixed = selectedFeatures();
+        const recommendations = recommendationPlan ? recommendationPlan.selected_bridges : [];
+        const fixed = fixedFeatures();
         recommendedList.replaceChildren();
         fixedList.replaceChildren();
 
-        countyFeatures.forEach(function (feature) {
+        if (!recommendations.length) {
+          const empty = document.createElement("li");
+          empty.className = "empty-state";
+          empty.textContent = "No bridges fit the selected budget in the current development dataset.";
+          recommendedList.appendChild(empty);
+        }
+
+        recommendations.forEach(function (record) {
+          const feature = findCountyBridge(record.bridge_id);
           const listItem = document.createElement("li");
           const listButton = document.createElement("button");
           listButton.type = "button";
-          if (String(feature.id) === selectedBridgeId) listButton.className = "is-active";
+          if (String(record.bridge_id) === selectedBridgeId) listButton.className = "is-active";
+          if (!feature) listButton.disabled = true;
           const title = document.createElement("strong");
-          title.textContent = bridgeName(feature);
+          title.textContent = recordName(record);
           const meta = document.createElement("span");
-          meta.textContent = "Condition " + (feature.properties.condition || "Unknown") +
-            " | ADT " + integer.format(Number(feature.properties.adt) || 0) +
-            " | " + currency.format(PROTOTYPE_COST);
+          meta.textContent = riskLabel(record.deterioration_risk_score) + " risk " + percent.format(Number(record.deterioration_risk_score) || 0) +
+            " | " + currency.format(Number(record.predicted_cost) || 0);
           listButton.append(title, meta);
-          listButton.addEventListener("click", function () { showBridgeDetails(feature); });
+          if (feature) listButton.addEventListener("click", function () { showBridgeDetails(feature); });
           listItem.appendChild(listButton);
           recommendedList.appendChild(listItem);
         });
@@ -343,11 +376,12 @@
         }
 
         fixed.forEach(function (feature) {
+          const record = recommendationFor(feature);
           const fixedItem = document.createElement("li");
           const fixedName = document.createElement("strong");
           fixedName.textContent = bridgeName(feature);
           const fixedMeta = document.createElement("span");
-          fixedMeta.textContent = "ADT " + integer.format(Number(feature.properties.adt) || 0) + " | " + currency.format(PROTOTYPE_COST);
+          fixedMeta.textContent = "ADT " + integer.format(Number(feature.properties.adt) || 0) + " | " + currency.format(record ? Number(record.predicted_cost) || 0 : 0);
           fixedItem.append(fixedName, fixedMeta);
           fixedList.appendChild(fixedItem);
         });
@@ -355,16 +389,12 @@
 
       function showBridgeDetails(feature) {
         selectedBridgeId = String(feature.id);
+        const record = recommendationFor(feature);
         if (plannerMap && mapReady && plannerMap.getLayer("selected-county-bridge")) {
           plannerMap.setFilter("selected-county-bridge", ["==", ["get", "bridgeId"], selectedBridgeId]);
         }
         if (plannerMap && mapReady) {
-          plannerMap.flyTo({
-            center: feature.geometry.coordinates,
-            zoom: Math.max(plannerMap.getZoom(), 14),
-            duration: 700,
-            essential: true
-          });
+          plannerMap.flyTo({ center: feature.geometry.coordinates, zoom: Math.max(plannerMap.getZoom(), 14), duration: 700, essential: true });
         }
         const properties = feature.properties || {};
         bridgeDetail.replaceChildren();
@@ -375,11 +405,12 @@
         location.textContent = properties.location || activeCounty[1];
         const detailGrid = document.createElement("div");
         detailGrid.className = "detail-grid";
+        const risk = record ? riskLabel(record.deterioration_risk_score) + " (" + percent.format(Number(record.deterioration_risk_score) || 0) + ")" : "Not included in current model data";
         const details = [
-          ["Deterioration probability", "Pending model"],
-          ["Predicted cost", currency.format(PROTOTYPE_COST) + " prototype"],
-          ["Priority score", "Pending model"],
-          ["Recommendation reason", "Pending algorithm"]
+          ["Deterioration probability", risk],
+          ["Predicted cost", record ? currency.format(Number(record.predicted_cost) || 0) : "Not available"],
+          ["Priority score", record ? Number(record.priority_score).toFixed(1) : "Not available"],
+          ["Recommendation reason", record ? recommendationReason(record) : "This bridge is not covered by the current mock prediction and cost file."]
         ];
         details.forEach(function (detail) {
           const item = document.createElement("div");
@@ -403,7 +434,11 @@
               type: "Feature",
               id: feature.id,
               geometry: feature.geometry,
-              properties: Object.assign({}, feature.properties, { fixed: fixedBridgeIds.has(String(feature.id)), bridgeId: String(feature.id) })
+              properties: Object.assign({}, feature.properties, {
+                fixed: fixedBridgeIds.has(String(feature.id)),
+                recommended: recommendationById.has(String(feature.id)),
+                bridgeId: String(feature.id)
+              })
             };
           })
         };
@@ -416,13 +451,13 @@
 
       function fixBridge(feature) {
         const id = String(feature.id);
-        if (fixedBridgeIds.has(id) || remainingBudget() < PROTOTYPE_COST) return;
+        const cost = predictedCost(feature);
+        if (!recommendationFor(feature) || fixedBridgeIds.has(id) || cost <= 0 || remainingBudget() < cost) return;
         fixedBridgeIds.add(id);
         selectedBridgeId = id;
-        updateMetrics();
-        renderLists();
-        showBridgeDetails(feature);
         refreshMapData();
+        updateMetrics();
+        showBridgeDetails(feature);
         if (activePopup) activePopup.remove();
       }
 
@@ -457,8 +492,8 @@
             type: "circle",
             source: "county-bridges",
             paint: {
-              "circle-color": ["case", ["==", ["get", "fixed"], true], "#2563eb", ["match", ["get", "condition"], "G", "#16a34a", "F", "#f59e0b", "P", "#dc2626", "#64748b"]],
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 5, 12, 8],
+              "circle-color": ["case", ["==", ["get", "fixed"], true], "#2563eb", ["==", ["get", "recommended"], true], "#7c3aed", ["match", ["get", "condition"], "G", "#16a34a", "F", "#f59e0b", "P", "#dc2626", "#64748b"]],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, ["case", ["==", ["get", "recommended"], true], 6, 4], 12, ["case", ["==", ["get", "recommended"], true], 9, 7]],
               "circle-stroke-width": 1.4,
               "circle-stroke-color": "#ffffff",
               "circle-opacity": 0.9
@@ -470,11 +505,11 @@
             source: "county-bridges",
             filter: ["==", ["get", "bridgeId"], ""],
             paint: {
-              "circle-color": ["case", ["==", ["get", "fixed"], true], "#2563eb", ["match", ["get", "condition"], "G", "#16a34a", "F", "#f59e0b", "P", "#dc2626", "#64748b"]],
-              "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 10, 12, 16],
-              "circle-stroke-width": 1.4,
+              "circle-color": ["case", ["==", ["get", "fixed"], true], "#2563eb", ["==", ["get", "recommended"], true], "#7c3aed", ["match", ["get", "condition"], "G", "#16a34a", "F", "#f59e0b", "P", "#dc2626", "#64748b"]],
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 7, 10, 12, 18],
+              "circle-stroke-width": 2,
               "circle-stroke-color": "#ffffff",
-              "circle-opacity": 0.9
+              "circle-opacity": 0.95
             }
           });
           mapReady = true;
@@ -487,20 +522,24 @@
           const original = findCountyBridge(clicked.properties.bridgeId);
           if (!original) return;
           const properties = original.properties || {};
+          const record = recommendationFor(original);
           const content = document.createElement("div");
           const name = document.createElement("p");
           name.className = "popup-name";
           name.textContent = bridgeName(original);
           const meta = document.createElement("p");
           meta.className = "popup-meta";
-          meta.textContent = "Condition " + (properties.condition || "Unknown") + " | ADT " + integer.format(Number(properties.adt) || 0);
+          meta.textContent = record
+            ? riskLabel(record.deterioration_risk_score) + " risk " + percent.format(Number(record.deterioration_risk_score) || 0) + " | " + currency.format(Number(record.predicted_cost) || 0)
+            : "Not covered by the current development cost file";
           const fixButton = document.createElement("button");
           fixButton.type = "button";
           fixButton.className = "popup-fix";
           const alreadyFixed = fixedBridgeIds.has(String(original.id));
-          const affordable = remainingBudget() >= PROTOTYPE_COST;
+          const cost = predictedCost(original);
+          const affordable = record && cost > 0 && remainingBudget() >= cost;
           fixButton.disabled = alreadyFixed || !affordable;
-          fixButton.textContent = alreadyFixed ? "Already fixed" : affordable ? "Fix - " + currency.format(PROTOTYPE_COST) : "Not enough budget";
+          fixButton.textContent = alreadyFixed ? "Already fixed" : !record ? "Cost unavailable" : affordable ? "Fix - " + currency.format(cost) : "Not enough budget";
           fixButton.addEventListener("click", function () { fixBridge(original); });
           content.append(name, meta, fixButton);
           activePopup = new maplibregl.Popup({ offset: 11, className: "budget-popup" }).setLngLat(original.geometry.coordinates).setDOMContent(content).addTo(plannerMap);
@@ -509,13 +548,31 @@
         plannerMap.on("mouseleave", "county-bridge-points", function () { plannerMap.getCanvas().style.cursor = ""; });
       }
 
-      function startScenario() {
+      async function requestRecommendation() {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(function () { controller.abort(); }, 120000);
+        try {
+          const response = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ budget: activeBudget, county_fips: activeCounty[0], strategy: "balanced" }),
+            signal: controller.signal
+          });
+          const payload = await response.json().catch(function () { return {}; });
+          if (!response.ok) throw new Error(payload.detail || "The recommendation service returned an error.");
+          return payload;
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
+      }
+
+      async function startScenario() {
         activeBudget = Number(budgetInput.value);
         activeCounty = findCounty(countyInput.value);
         activeMethod = findMethod(methodInput.value);
 
-        if (!Number.isFinite(activeBudget) || activeBudget < 0) {
-          formStatus.textContent = "Enter a valid non-negative budget.";
+        if (!Number.isFinite(activeBudget) || activeBudget <= 0) {
+          formStatus.textContent = "Enter a budget greater than zero.";
           formStatus.className = "form-status error";
           budgetInput.focus();
           return;
@@ -533,29 +590,50 @@
           return;
         }
 
-        countyFeatures = allBridgeData.features.filter(function (feature) { return feature.properties.countyCode === activeCounty[0]; });
-        fixedBridgeIds = new Set();
-        selectedBridgeId = null;
-        if (plannerMap && mapReady && plannerMap.getLayer("selected-county-bridge")) {
-          plannerMap.setFilter("selected-county-bridge", ["==", ["get", "bridgeId"], ""]);
-        }
-        bridgeDetail.innerHTML = '<div class="empty-state">Select a bridge to view deterioration probability, predicted cost, priority score, and recommendation reason.</div>';
-        document.getElementById("scenario-title").textContent = activeCounty[1] + " budget plan";
-        document.getElementById("scenario-subtitle").textContent = integer.format(countyFeatures.length) + " available bridge records";
-        document.getElementById("map-title").textContent = activeCounty[1] + " bridges";
-        document.getElementById("county-bridge-count").textContent = integer.format(countyFeatures.length) + " bridges";
-        results.hidden = false;
-        updateMetrics();
-        renderLists();
-        if (!plannerMap) createMap();
-        else {
-          plannerMap.resize();
-          refreshMapData();
-          fitCounty();
-        }
-        formStatus.textContent = "Scenario ready. The page has opened the county results below.";
+        calculateButton.disabled = true;
+        calculateButton.textContent = "Calculating...";
+        formStatus.textContent = "Contacting the recommendation service. A sleeping free server can take up to a minute to wake.";
         formStatus.className = "form-status";
-        window.setTimeout(function () { results.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+
+        try {
+          const plan = await requestRecommendation();
+          recommendationPlan = plan;
+          recommendationById = new Map(plan.selected_bridges.map(function (record) { return [String(record.bridge_id), record]; }));
+          countyFeatures = allBridgeData.features.filter(function (feature) { return feature.properties.countyCode === activeCounty[0]; });
+          fixedBridgeIds = new Set();
+          selectedBridgeId = null;
+          if (activePopup) activePopup.remove();
+          if (plannerMap && mapReady && plannerMap.getLayer("selected-county-bridge")) {
+            plannerMap.setFilter("selected-county-bridge", ["==", ["get", "bridgeId"], ""]);
+          }
+          bridgeDetail.innerHTML = '<div class="empty-state">Select a recommended bridge to view deterioration probability, predicted cost, priority score, and recommendation reason.</div>';
+          document.getElementById("scenario-title").textContent = activeCounty[1] + " budget plan";
+          document.getElementById("scenario-subtitle").textContent = integer.format(plan.selected_bridges.length) + " recommended from " + integer.format(countyFeatures.length) + " county bridge records";
+          document.getElementById("map-title").textContent = activeCounty[1] + " bridges";
+          document.getElementById("county-bridge-count").textContent = integer.format(countyFeatures.length) + " bridges";
+          results.hidden = false;
+          updateMetrics();
+          renderLists();
+          if (!plannerMap) createMap();
+          else {
+            plannerMap.resize();
+            refreshMapData();
+            fitCounty();
+          }
+          formStatus.textContent = "Plan ready. " + plan.selected_bridges.length + " bridge" + (plan.selected_bridges.length === 1 ? "" : "s") + " recommended. The method selection is display-only and currently uses the balanced strategy.";
+          formStatus.className = "form-status";
+          window.setTimeout(function () { results.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80);
+        } catch (error) {
+          const message = error.name === "AbortError"
+            ? "The free recommendation server took too long to wake. Please click Calculate again."
+            : error.message;
+          formStatus.textContent = message;
+          formStatus.className = "form-status error";
+          console.error(error);
+        } finally {
+          calculateButton.disabled = false;
+          calculateButton.textContent = "Calculate";
+        }
       }
 
       plannerForm.addEventListener("submit", function (event) { event.preventDefault(); startScenario(); });
@@ -570,7 +648,7 @@
             allBridgeData = data;
             calculateButton.disabled = false;
             calculateButton.textContent = "Calculate";
-            formStatus.textContent = "Bridge data ready. Search for a county and choose a method.";
+            formStatus.textContent = "Bridge data ready. For mock recommendations, test Adams County or Cumberland County.";
           })
           .catch(function (error) {
             formStatus.textContent = "Bridge data could not be loaded. Start the local server and refresh.";

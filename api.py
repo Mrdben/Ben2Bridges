@@ -32,16 +32,17 @@ PREDICTIONS_PATH = configured_path(
 )
 COUNTIES_PATH = configured_path("BEN2_COUNTIES", "algorithm/data/pa_counties.csv")
 
-default_origins = (
-    "https://ben2bridges-pa.netlify.app,"
-    "http://localhost:8000,"
-    "http://127.0.0.1:8000"
-)
-allowed_origins = [
+default_origins = {
+    "https://ben2bridges-pa.netlify.app",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+}
+configured_origins = {
     origin.strip()
-    for origin in os.getenv("BEN2_ALLOWED_ORIGINS", default_origins).split(",")
+    for origin in os.getenv("BEN2_ALLOWED_ORIGINS", "").split(",")
     if origin.strip()
-]
+}
+allowed_origins = sorted(default_origins | configured_origins)
 
 app = FastAPI(
     title="Ben2Bridges Recommendation API",
