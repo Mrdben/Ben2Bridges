@@ -392,7 +392,7 @@
     <script>
       (function () {
         const trigger = document.getElementById("aviral-easter-egg");
-        const lines = ["Bro Chillll", "LAAARP", "It's accurate 80% of the time..."];
+        const message = "Bro Chillll";
         let hideTimer;
 
         trigger.addEventListener("click", function () {
@@ -402,7 +402,7 @@
           const bubble = document.createElement("span");
           bubble.className = "team-speech";
           bubble.setAttribute("aria-hidden", "true");
-          bubble.textContent = lines[Math.floor(Math.random() * lines.length)];
+          bubble.textContent = message;
           trigger.appendChild(bubble);
 
           hideTimer = window.setTimeout(function () {
